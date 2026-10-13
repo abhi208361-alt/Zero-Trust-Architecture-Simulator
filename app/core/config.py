@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     database_url: str = "sqlite:///./zero_trust.db"
 
-    jwt_secret_key: str = Field(default="change-me-in-env", min_length=16)
+    # JWT secret key MUST be set via environment variable
+    jwt_secret_key: str = Field(min_length=16)
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
 
@@ -20,6 +21,19 @@ class Settings(BaseSettings):
 
     auth_rate_limit_attempts: int = 5
     auth_rate_limit_window_seconds: int = 60
+
+    # CORS configuration
+    allow_origins: list = ["*"]
+    allow_methods: list = ["GET", "POST", "PUT", "DELETE"]
+    allow_headers: list = ["*"]
+
+    # Security settings
+    env: str = "development"
+
+    # Default user passwords (can be overridden via environment variables)
+    viewer_password: str = "viewer123!"
+    analyst_password: str = "analyst123!"
+    admin_password: str = "admin123!"
 
 
 @lru_cache

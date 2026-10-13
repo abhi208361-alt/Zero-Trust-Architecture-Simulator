@@ -18,8 +18,14 @@ class PolicyDecision(BaseModel):
     reason: str
     checks: list[str]
     risk_score: int
-    timestamp: datetime
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
     correlation_id: str
     user: str
     resource: str
     action: str
+
+    def model_dump_json(self) -> str:
+        """Return JSON-serializable representation, converting datetime to ISO string."""
+        data = self.model_dump()
+        data["timestamp"] = self.timestamp.isoformat()
+        return data

@@ -14,7 +14,6 @@ class UserRole(str, enum.Enum):
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = (Index("ix_users_role", "role"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)

@@ -327,8 +327,8 @@ def resource_access(payload: PolicyEvaluationRequest, db: DbDep, user: CurrentUs
         metadata={"checks": decision.checks, "simulated": True},
     )
     if decision.decision == "deny":
-        raise HTTPException(status_code=403, detail={"reason": decision.reason, "decision": decision.model_dump()})
-    return {"message": "Access granted", "decision": decision.model_dump()}
+        raise HTTPException(status_code=403, detail={"reason": decision.reason, "decision": {"decision": decision.decision, "reason": decision.reason, "checks": decision.checks, "risk_score": decision.risk_score, "timestamp": decision.timestamp.isoformat(), "correlation_id": decision.correlation_id, "user": decision.user, "resource": decision.resource, "action": decision.action}})
+    return {"message": "Access granted", "decision": {"decision": decision.decision, "reason": decision.reason, "checks": decision.checks, "risk_score": decision.risk_score, "timestamp": decision.timestamp.isoformat(), "correlation_id": decision.correlation_id, "user": decision.user, "resource": decision.resource, "action": decision.action}}
 
 
 @router.get("/audit/logs", response_model=list[AuditLogResponse])
