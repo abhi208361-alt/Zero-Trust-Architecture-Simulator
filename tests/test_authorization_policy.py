@@ -1,5 +1,3 @@
-
-
 def test_viewer_allowed_and_denied_paths(client, auth_headers):
     viewer_headers = auth_headers("viewer", "viewer123!")
     allowed = client.post(

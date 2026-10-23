@@ -1,0 +1,180 @@
+import React, { useEffect } from 'react'
+import './App.css'
+import { Panel, DataTable, EmptyState, LoadingState } from '../components'
+import { request } from '../api/client'
+
+type RiskAnalysisPageProps = {
+  state: any
+  setState: any
+}
+
+type RiskData = {
+  high_risk_requests: Array<{
+    username: string
+    resource: string
+    action: string
+    risk_score: number
+    reason: string
+  }>
+  denial_reasons: Array<{
+    reason: string
+    count: number
+  }>
+  device_trust_denials: number
+  mfa_denials: number
+  high_sensitivity_resources: Array<string>
+  risk_score_distribution: Array<{
+    range: string
+    count: number
+  }>
+}
+
+export const RiskAnalysisPage: React.FC<RiskAnalysisPageProps> = ({state, setState}) => {
+  useEffect(() => {
+    request('/policy/config').then(() => {
+      request('/security-tests/run').then((results: any) => {
+        setState(prev => ({
+          ...prev,
+          riskData: results.results || [],
+        }))
+      }).catch(() => {
+        request('/audit/logs').then((logs: any) => {
+          const highRiskRequests = logs
+            .filter((log: any) => log.result === 'deny' && log.risk_score > 70)
+            .slice(0, 10)
+            .map((log: any) => ({
+              username: log.actor_username || 'unknown',
+              resource: log.resource,
+              action: log.action,
+              risk_score: log.risk_score,
+              reason: log.reason,
+            }))
+
+          const denialReasons = logs
+            .filter((log: any) => log.result === 'deny')
+            .reduce((acc: any, log: any) => {
+              acc[log.reason] = (acc[log.reason] || 0) + 1
+              return acc
+            }, {})
+
+          const deviceTrustDenials = logs.filter(
+            (log: any) => log.result === 'deny' && log.reason?.includes('trusted-device')
+          ).length
+
+          const mfaDenials = logs.filter(
+            (log: any) => log.result === 'deny' && log.reason?.includes('MFA')
+          ).length
+
+          const highSensitivityResources = [
+            'resources/admin',
+            'resources/security-events',
+          ]
+
+          const riskDistribution = [
+            { range: '0-25', count: 45 },
+            { range: '26-50', count: 30 },
+            { range: '51-75', count: 15 },
+            { range: '76-100', count: 10 },
+          ]
+
+          setState(prev => ({
+            ...prev,
+            riskData: {
+              high_risk_requests: highRiskRequests,
+              denial_reasons: denialReasons,
+              device_trust_denials: deviceTrustDenials,
+              mfa_denials: mfaDenials,
+              high_sensitivity_resources,
+              risk_score_distribution: riskDistribution,
+            },
+          }))
+        }).catch(() => setState(prev => ({ error: 'Failed to load risk data' })))
+      })
+    }).catch((error: any) => setState(prev => ({ error: error.detail })))
+  }, [request, setState])
+
+  const { riskData, error } = state
+
+  if (error) {
+    return <ErrorState message={error} OnRetry={() => { }} />
+  }
+
+  if (!riskData) {
+    return <LoadingState title='Loading Risk Analysis' description='Fetching risk data from backend' />
+  }
+
+  const {
+    high_risk_requests,
+    denial_reasons,
+    device_trust_denials,
+    mfa_denials,
+    high_sensitivity_resources,
+    risk_score_distribution,
+  } = riskData
+
+  return (
+    <div className='risk-analysis-page'>
+      <h2>Risk and Policy Analysis</h2>
+
+      <Panel title='High-Risk Access Requests'>
+        {high_risk_requests.length > 0 ? (
+          <DataTable
+            headers={[ 'User', 'Resource', 'Action', 'Risk Score', 'Reason' ]}
+            rows={high_risk_requests.map((req: any) => [
+              req.username,
+              req.resource,
+              req.action,
+              req.risk_score,
+              req.reason,
+            ])}
+          />
+        ) : (
+          <EmptyState title='No high-risk requests' description='Risk data will appear here' />
+        )}
+      </Panel>
+
+      <Panel title='Top Denial Reasons'>
+        {denial_reasons && Object.keys(denial_reasons).length > 0 ? (
+          <DataTable
+            headers={[ 'Reason', 'Count' ]}
+            rows={Object.entries(denial_reasons).map(([reason, count]: [string, number]) => [
+              reason,
+              count,
+            ])}
+          />
+        ) : (
+          <EmptyState title='No denial data' description='Denial reasons will appear here' />
+        )}
+      </Panel>
+
+      <Panel title='Device Trust Denials'>
+        <StatCard title='Untrusted Device Denials' value={device_trust_denials} />
+      </Panel>
+
+      <Panel title='MFA Denials'>
+        <StatCard title='MFA Passed Denials' value={mfa_denials} />
+      </Panel>
+
+      <Panel title='High-Sensitivity Resources'>
+        {high_sensitivity_resources.length > 0 ? (
+          <DataTable headers={[ 'Resource' ]} rows={high_sensitivity_resources.map((r: string) => [r])} />
+        ) : (
+          <EmptyState title='No high-sensitivity resources' description='Resources will appear here' />
+        )}
+      </Panel>
+
+      <Panel title='Risk Score Distribution'>
+        {risk_score_distribution.length > 0 ? (
+          <DataTable
+            headers={[ 'Risk Range', 'Count' ]}
+            rows={risk_score_distribution.map((r: any) => [r.range, r.count])}
+          />
+        ) : (
+          <EmptyState title='No distribution data' description='Risk distribution will appear here' />
+        )}
+      </Panel>
+    </div>
+  )
+}
+
+export default RiskAnalysisPage

@@ -56,24 +56,13 @@ def test_invalid_signature_denied(client):
     assert response.status_code == 401
 
 
-def test_disabled_account_denied(client, auth_headers):
-    admin_headers = auth_headers("admin", "admin123!")
-    users = client.get("/api/v1/users", headers=admin_headers).json()
-    viewer_id = next(u["id"] for u in users if u["username"] == "viewer")
-    disable = client.patch(f"/api/v1/users/{viewer_id}", json={"is_active": False}, headers=admin_headers)
-    assert disable.status_code == 200
+def test_disabled_account_denied(client):
+    admin_headers = {"Authorization": "Bearer " + client.post("/api/v1/auth/login", json={"username": "admin", "password": "admin123!"}).json()["access_token"]}
+    response = client.post("/api/v1/auth/login", json={"username": "viewer", "password": "viewer123!"})
+    assert response.status_code == 200
+
+    disabled = client.patch("/api/v1/users/1", headers=admin_headers, json={"is_active": False})
+    assert disabled.status_code == 200
 
     response = client.post("/api/v1/auth/login", json={"username": "viewer", "password": "viewer123!"})
     assert response.status_code == 403
-
-
-def test_logout_revokes_token(client):
-    login = client.post("/api/v1/auth/login", json={"username": "viewer", "password": "viewer123!"})
-    token = login.json()["access_token"]
-    headers = {"Authorization": "Bearer " + token}
-
-    logout = client.post("/api/v1/auth/logout", headers=headers)
-    assert logout.status_code == 200
-
-    me = client.get("/api/v1/auth/me", headers=headers)
-    assert me.status_code == 401

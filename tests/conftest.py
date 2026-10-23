@@ -31,14 +31,3 @@ def client(tmp_path, monkeypatch):
     test_app = app.main.create_app()
     with TestClient(test_app) as test_client:
         yield test_client
-
-
-@pytest.fixture()
-def auth_headers(client):
-    def _login(username: str, password: str):
-        response = client.post("/api/v1/auth/login", json={"username": username, "password": password})
-        assert response.status_code == 200, response.text
-        token = response.json()["access_token"]
-        return {"Authorization": "Bearer " + token}
-
-    return _login

@@ -1,3 +1,69 @@
+:root {
+  --bg-deep: #061724;
+  --bg-mid: #091f35;
+  --panel: rgba(9, 22, 35, 0.9);
+  --panel-strong: #0a182b;
+  --border: rgba(138, 160, 196, 0.2);
+  --blue: #2a8ef3;
+  --blue-strong: #1b6ad8;
+  --cyan: #5ad8ff;
+  --text: #ebf3ff;
+  --muted: #8aa4c4;
+  --green: #4fe9a4;
+  --red: #ff6678;
+  --amber: #f2d27a;
+  --shadow: rgba(2, 12, 19, 0.68);
+}
+
 * {
   box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  min-height: 100%;
+  width: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(51, 120, 255, 0.18), transparent 28%),
+    linear-gradient(180deg, #03131d 0%, #091d2d 100%);
+  color: var(--text);
+  font-family: Inter, 'Segoe UI', sans-serif;
+}
+
+body {
+  min-height: 100vh;
+}
+
+button, input, select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input, select {
+  background: rgba(8, 17, 28, 0.9);
+  border: 1px solid rgba(118, 160, 215, 0.22);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px 10px;
+}
+
+input::placeholder {
+  color: #7a96b3;
+}
+
+input:focus, select:focus, button:focus {
+  outline: 2px solid rgba(93, 164, 255, 0.5);
+  outline-offset: 2px;
+}
+
+h1, h2, h3, h4, p {
+  margin-top: 0;
 }

@@ -25,7 +25,6 @@ class PolicyDecision(BaseModel):
     action: str
 
     def model_dump_json(self) -> str:
-        """Return JSON-serializable representation, converting datetime to ISO string."""
         data = self.model_dump()
         data["timestamp"] = self.timestamp.isoformat()
         return data

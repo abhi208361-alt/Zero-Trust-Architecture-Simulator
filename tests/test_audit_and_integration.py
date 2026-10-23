@@ -1,11 +1,9 @@
-
 def test_database_initialization_and_seeded_users(client, auth_headers):
     headers = auth_headers("admin", "admin123!")
     users = client.get("/api/v1/users", headers=headers)
     assert users.status_code == 200
     usernames = {u["username"] for u in users.json()}
     assert {"viewer", "analyst", "admin"}.issubset(usernames)
-
 
 def test_audit_logging_and_authorization(client, auth_headers):
     viewer_headers = auth_headers("viewer", "viewer123!")
@@ -31,7 +29,6 @@ def test_audit_logging_and_authorization(client, auth_headers):
     logs = allowed.json()
     assert any(log["result"] == "deny" for log in logs)
     assert all("password" not in log["reason"].lower() for log in logs)
-
 
 def test_dashboard_and_security_testing_endpoints(client, auth_headers):
     headers = auth_headers("admin", "admin123!")
