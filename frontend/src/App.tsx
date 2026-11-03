@@ -44,6 +44,8 @@ const navItems = [
   { label: 'Security Testing', path: '/security-testing' },
   { label: 'AI Assistant', path: '/assistant' },
   { label: 'Documentation', path: '/documentation' },
+  { label: 'Profile', path: '/profile' },
+  { label: 'Notifications', path: '/notifications' },
   { label: 'Settings', path: '/settings' },
 ]
 
@@ -125,6 +127,8 @@ function App() {
           <Route path="security-testing" element={<SecurityTestingPage token={token} currentUser={currentUser} />} />
           <Route path="assistant" element={<AssistantPage token={token} currentUser={currentUser} />} />
           <Route path="documentation" element={<DocumentationPage token={token} currentUser={currentUser} />} />
+          <Route path="profile" element={<ProfilePage currentUser={currentUser} />} />
+          <Route path="notifications" element={<NotificationsPage token={token} />} />
           <Route path="settings" element={<SettingsPage token={token} currentUser={currentUser} />} />
           <Route path="access-denied" element={<AccessDeniedPage />} />
           <Route path="*" element={<NotFoundPage />} />
@@ -228,6 +232,8 @@ function routeTitle(path: string) {
     '/security-testing': 'Security Testing',
     '/assistant': 'AI Assistant',
     '/documentation': 'Documentation',
+    '/profile': 'User Profile',
+    '/notifications': 'Notifications',
     '/settings': 'Settings',
     '/access-denied': 'Access Denied',
   }
@@ -1055,6 +1061,8 @@ function AuditLogsPage({ token }: { token: string }) {
   const [error, setError] = useState('')
   const [decision, setDecision] = useState('')
   const [search, setSearch] = useState('')
+  const [action, setAction] = useState('')
+  const [severity, setSeverity] = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -1063,6 +1071,8 @@ function AuditLogsPage({ token }: { token: string }) {
         const query = new URLSearchParams()
         if (decision) query.set('decision', decision)
         if (search.trim()) query.set('search', search.trim())
+        if (action) query.set('action', action)
+        if (severity) query.set('severity', severity)
         const result = await apiFetch(`/audit/logs${query.toString() ? `?${query}` : ''}`, { method: 'GET' }, token)
         setLogs(result)
       } catch (e) {
@@ -1072,7 +1082,7 @@ function AuditLogsPage({ token }: { token: string }) {
       }
     }
     load()
-  }, [token, decision, search])
+  }, [token, decision, search, action, severity])
 
   return (
     <div className="page-card">
@@ -1085,6 +1095,13 @@ function AuditLogsPage({ token }: { token: string }) {
           <option value="deny">Denied</option>
         </select>
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search logs" />
+        <input value={action} onChange={(event) => setAction(event.target.value)} placeholder="Action" />
+        <select value={severity} onChange={(event) => setSeverity(event.target.value)}>
+          <option value="">All severities</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="info">Info</option>
+        </select>
       </div>
 
       <div className="table-wrap">
@@ -1382,6 +1399,85 @@ function DocumentationPage({ token }: { token: string }) {
           <h3>Policies</h3>
           <p>Access is governed by RBAC and device + risk policy controls.</p>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function ProfilePage({ currentUser }: { currentUser: User | null }) {
+  if (!currentUser) return <div className="page-card">Profile unavailable.</div>
+  return (
+    <div className="page-card">
+      <h2>User Profile</h2>
+      <div className="settings-grid">
+        <div><span className="muted-copy">Full name</span><strong>{currentUser.full_name}</strong></div>
+        <div><span className="muted-copy">Username</span><strong>{currentUser.username}</strong></div>
+        <div><span className="muted-copy">Email</span><strong>{currentUser.email}</strong></div>
+        <div><span className="muted-copy">Role</span><strong>{currentUser.role}</strong></div>
+        <div><span className="muted-copy">Account status</span><strong>{currentUser.is_active ? 'Active' : 'Disabled'}</strong></div>
+      </div>
+      <p className="muted-copy">Update profile details and credentials from Settings.</p>
+    </div>
+  )
+}
+
+function NotificationsPage({ token }: { token: string }) {
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [error, setError] = useState('')
+
+  const load = async () => {
+    try {
+      setNotifications(await apiFetch('/notifications', { method: 'GET' }, token))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  useEffect(() => { void load() }, [token])
+
+  const markRead = async (id: number) => {
+    try {
+      await apiFetch(`/notifications/${id}/read`, { method: 'POST' }, token)
+      await load()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  const markAllRead = async () => {
+    try {
+      await apiFetch('/notifications/read-all', { method: 'POST' }, token)
+      await load()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  return (
+    <div className="page-card">
+      <div className="panel-header">
+        <h2>Notifications</h2>
+        <button className="ghost-button" type="button" onClick={() => void markAllRead()}>
+          Mark all as read
+        </button>
+      </div>
+      {error && <div className="error-banner">{error}</div>}
+      {!notifications.length && !error && <div className="empty-box">No application events require attention.</div>}
+      <div className="stack-list">
+        {notifications.map((notification) => (
+          <div className={`stack-row ${notification.read ? 'muted-copy' : ''}`} key={notification.id}>
+            <div>
+              <strong>{notification.title}</strong>
+              <div>{notification.description}</div>
+              <small>{notification.resource} · {new Date(notification.timestamp).toLocaleString()}</small>
+            </div>
+            {!notification.read && (
+              <button className="tiny-button" type="button" onClick={() => void markRead(notification.id)}>
+                Mark read
+              </button>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )

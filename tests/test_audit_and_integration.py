@@ -88,3 +88,30 @@ def test_profile_update_and_documentation(client, auth_headers):
     documentation = client.get("/api/v1/documentation", headers=headers)
     assert documentation.status_code == 200
     assert documentation.json()["slug"] == "overview"
+
+
+def test_notifications_are_audited_and_read_state_persists(client, auth_headers):
+    headers = auth_headers("viewer", "viewer123!")
+    decision = client.post(
+        "/api/v1/resources/access",
+        headers=headers,
+        json={
+            "username": "viewer",
+            "resource": "resources/admin",
+            "action": "manage",
+            "simulated_device_trusted": True,
+            "simulated_risk_score": 90,
+        },
+    )
+    assert decision.status_code == 403
+
+    notifications = client.get("/api/v1/notifications", headers=headers)
+    assert notifications.status_code == 200
+    item = notifications.json()[0]
+    assert item["severity"] in {"critical", "high", "info"}
+    assert item["read"] is False
+
+    marked = client.post(f"/api/v1/notifications/{item['id']}/read", headers=headers)
+    assert marked.status_code == 200
+    refreshed = client.get("/api/v1/notifications", headers=headers).json()
+    assert next(notification for notification in refreshed if notification["id"] == item["id"])["read"] is True

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -90,6 +91,81 @@ def update_profile(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+def _notification_preferences(user: User) -> dict:
+    try:
+        value = json.loads(user.notification_preferences or "{}")
+    except json.JSONDecodeError:
+        value = {}
+    return value if isinstance(value, dict) else {}
+
+
+def _notification_response(log: AuditLog, read_ids: set[int]) -> dict:
+    severity = "critical" if log.risk_score >= 80 else "high" if log.risk_score >= 60 else "info"
+    return {
+        "id": log.id,
+        "title": f"{log.decision.title()} access decision",
+        "description": log.reason,
+        "resource": log.resource,
+        "action": log.action,
+        "severity": severity,
+        "read": log.id in read_ids,
+        "timestamp": log.timestamp.isoformat(),
+    }
+
+
+@router.get("/notifications")
+def list_notifications(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    preferences = _notification_preferences(current_user)
+    read_ids = {int(value) for value in preferences.get("read_ids", []) if str(value).isdigit()}
+    query = db.query(AuditLog)
+    if current_user.role != UserRole.ADMINISTRATOR:
+        query = query.filter(AuditLog.user == current_user.username)
+    logs = query.order_by(AuditLog.timestamp.desc()).limit(50).all()
+    return [_notification_response(log, read_ids) for log in logs]
+
+
+@router.post("/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    log = db.get(AuditLog, notification_id)
+    if log is None or (
+        current_user.role != UserRole.ADMINISTRATOR and log.user != current_user.username
+    ):
+        raise HTTPException(status_code=404, detail="Notification not found")
+    preferences = _notification_preferences(current_user)
+    read_ids = {int(value) for value in preferences.get("read_ids", []) if str(value).isdigit()}
+    read_ids.add(notification_id)
+    preferences["read_ids"] = sorted(read_ids)[-500:]
+    current_user.notification_preferences = json.dumps(preferences)
+    db.commit()
+    return {"message": "Notification marked as read"}
+
+
+@router.post("/notifications/read-all")
+def mark_all_notifications_read(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    query = db.query(AuditLog.id)
+    if current_user.role != UserRole.ADMINISTRATOR:
+        query = query.filter(AuditLog.user == current_user.username)
+    ids = [row[0] for row in query.order_by(AuditLog.timestamp.desc()).limit(500).all()]
+    preferences = _notification_preferences(current_user)
+    existing_ids = {
+        int(value) for value in preferences.get("read_ids", []) if str(value).isdigit()
+    }
+    preferences["read_ids"] = sorted(existing_ids.union(ids))[-500:]
+    current_user.notification_preferences = json.dumps(preferences)
+    db.commit()
+    return {"message": "Notifications marked as read", "count": len(ids)}
 
 
 @router.post("/auth/logout")
@@ -328,6 +404,8 @@ def get_audit_logs(
     search: str | None = None,
     actor: str | None = None,
     resource: str | None = None,
+    action: str | None = None,
+    severity: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
     current_user: User = Depends(get_current_user),
@@ -354,6 +432,14 @@ def get_audit_logs(
         query = query.filter(AuditLog.user == actor)
     if resource:
         query = query.filter(AuditLog.resource == resource)
+    if action:
+        query = query.filter(AuditLog.action == action)
+    if severity == "critical":
+        query = query.filter(AuditLog.risk_score >= 80)
+    elif severity == "high":
+        query = query.filter(AuditLog.risk_score >= 60, AuditLog.risk_score < 80)
+    elif severity == "info":
+        query = query.filter(AuditLog.risk_score < 60)
     if start_date:
         try:
             query = query.filter(AuditLog.timestamp >= datetime.fromisoformat(start_date))
@@ -375,6 +461,11 @@ def get_audit_logs(
             "result": log.decision,
             "reason": log.reason,
             "risk_score": log.risk_score,
+            "severity": (
+                "critical" if log.risk_score >= 80 else
+                "high" if log.risk_score >= 60 else
+                "info"
+            ),
             "timestamp": log.timestamp.isoformat(),
         }
         for log in logs
