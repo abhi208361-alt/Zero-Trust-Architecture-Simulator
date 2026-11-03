@@ -4,7 +4,10 @@
 
 **CONDITIONALLY ACCEPTED FOR LOCAL/CONTAINERIZED DEMONSTRATION.** The application was independently exercised after commit `582af59`. Two release-blocking defects were found and fixed: public registration used an invalid ORM field and legacy committed databases caused dashboard/audit queries to fail. Rate limiting and Alembic migrations were subsequently added and regression-tested.
 
-Production readiness is not declared because hosted GitHub Actions and Docker Compose execution were unavailable in this environment, and distributed rate limiting/session listing are not implemented.
+Production readiness is not declared because commit `9398330` is not present on
+the configured `origin/main`, hosted GitHub Actions have no run for this commit,
+Docker Compose is not installed in this environment, and distributed rate
+limiting/session listing are not implemented.
 
 ## Feature verification
 
@@ -72,7 +75,8 @@ Verified controls include Argon2 password hashing, JWT expiry/signature validati
 
 Not implemented or limited:
 
-- No request rate limiter is present.
+- Rate limiting is in-process only; it is not shared across worker processes or
+  replicas.
 - Device posture and ABAC signals are simulation inputs rather than external enforcement.
 - No persistent session-list UI or streaming security event bus is provided.
 
@@ -92,8 +96,13 @@ Not implemented or limited:
 
 - Docker image build: **passed**.
 - Docker container startup and `/api/v1/health`: **passed** with an explicit JWT secret and demo data disabled.
-- Docker Compose file: **syntax validation BLOCKED** because neither `docker compose` nor `docker-compose` is installed; healthcheck, restart policy, persistent bind storage, and secure environment wiring are configured.
-- GitHub Actions: workflow updated for tests, migrations, Bandit, pip-audit, frontend checks, and Docker build; hosted execution **NOT RUN**.
+- Docker persistent storage: **passed**; an SQLite database remained non-empty and the health endpoint passed after stopping and restarting containers with the same bind-mounted file.
+- Docker Compose: **NOT RUN/BLOCKED** because neither `docker compose` nor `docker-compose` is installed. The Compose file was inspected and contains the healthcheck, restart policy, persistent bind mount, required JWT secret, and configurable rate limits.
+- Fresh SQLite migration: **passed**; Alembic upgrade and downgrade completed successfully.
+- Legacy SQLite migration: **passed**; existing user and audit records were preserved and converted to the current schema.
+- Rate limiting: **passed**; login, registration, and administrator limits returned HTTP 429 with `Retry-After`. Two independent application processes each accepted their first request and independently limited their second request, confirming the documented process-local limitation.
+- JWT startup validation: **passed**; missing secrets, short secrets, placeholders, and low-diversity secrets were rejected.
+- GitHub Actions: workflow file was inspected and includes backend tests, migration validation, Bandit, pip-audit, frontend type/build checks, and Docker build. `gh run list --workflow ci.yml --commit 9398330` returned no runs; hosted execution is **NOT RUN**. The configured `origin/main` remains at `b5094da`.
 - `pdftotext` content extraction: **NOT RUN** because the utility is not installed; MIME/file validation and API response checks passed.
 
 ## Defects
