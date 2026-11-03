@@ -45,8 +45,9 @@ Set `VITE_API_BASE_URL` when the API is not running at
 
 ```bash
 docker build -t zero-trust-simulator .
+export JWT_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
 docker run --rm -p 8000:8000 \
-  -e JWT_SECRET_KEY=replace-with-a-32-character-secret \
+  -e JWT_SECRET_KEY="$JWT_SECRET_KEY" \
   zero-trust-simulator
 ```
 

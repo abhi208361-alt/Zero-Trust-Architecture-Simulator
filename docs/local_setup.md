@@ -59,7 +59,7 @@ Edit `.env` with your preferred settings:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| SECRET_KEY | demo-secret-key-change-me | HMAC secret for JWT signing |
+| JWT_SECRET_KEY | *(required; provide a random value of at least 32 characters)* | HMAC secret for JWT signing |
 | ACCESS_TOKEN_EXPIRE_MINUTES | 15 | Access token expiry in minutes |
 | ALLOWED_ORIGINS | * | CORS allowed origins (comma-separated) |
 | DATABASE_URL | sqlite:///./test.db | Database connection string |
@@ -70,9 +70,9 @@ Edit `.env` with your preferred settings:
 python -m app.main
 ```
 
-This will:
-- Create the SQLite database file
-- Seed default users (viewer, analyst, admin)
+This will create the SQLite database file. Demo users are not created unless
+`ENABLE_DEMO_DATA=true` and explicit `VIEWER_PASSWORD`, `ANALYST_PASSWORD`, and
+`ADMIN_PASSWORD` values are provided.
 - Create all database tables and indexes
 - Print startup message confirming initialization
 

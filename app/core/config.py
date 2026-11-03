@@ -18,7 +18,16 @@ class Settings(BaseSettings):
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def reject_placeholder_secret(cls, value: str) -> str:
-        if value.lower().startswith("change-me") or value.lower().startswith("replace-with"):
+        normalized = value.strip().lower()
+        placeholders = (
+            "change-me",
+            "replace-with",
+            "generate-a-random",
+            "your-secret",
+            "secret-key",
+            "default-secret",
+        )
+        if any(normalized.startswith(prefix) for prefix in placeholders) or len(set(value)) < 8:
             raise ValueError("JWT_SECRET_KEY must be a deployment-provided random secret")
         return value
 

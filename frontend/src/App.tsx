@@ -338,8 +338,8 @@ function LoginPage({
   setCurrentUser: (v: User | null) => void
 }) {
   const navigate = useNavigate()
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('admin123!')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -740,8 +740,8 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
         </div>
         {!token ? (
           <form className="mini-form" onSubmit={(e) => e.preventDefault()}>
-            <input placeholder="Username" defaultValue="admin" />
-            <input type="password" placeholder="Password" defaultValue="admin123!" />
+            <input placeholder="Username" />
+            <input type="password" placeholder="Password" />
             <button type="submit" className="primary-button small">Sign In</button>
           </form>
         ) : (

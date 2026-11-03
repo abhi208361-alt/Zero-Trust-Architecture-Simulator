@@ -21,24 +21,17 @@ export function LoginPage({ onLogin, loading, error }: LoginPageProps) {
         <form onSubmit={handleSubmit} className="form-grid">
           <label>
             Username
-            <input name="username" defaultValue="admin" required />
+            <input name="username" required />
           </label>
           <label>
             Password
-            <input name="password" type="password" defaultValue="admin123!" required />
+            <input name="password" type="password" required />
           </label>
           {error ? <div className="message error">{error}</div> : null}
           <button className="primary" type="submit" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
-
-        <div className="demo-credentials">
-          <strong>Demo accounts</strong>
-          <span>viewer / viewer123!</span>
-          <span>analyst / analyst123!</span>
-          <span>admin / admin123!</span>
-        </div>
       </div>
     </div>
   )

@@ -22,7 +22,41 @@ Production readiness is not declared because hosted GitHub Actions and Docker Co
 | User/profile/settings | PASS | Profile/password update and session invalidation covered by regression tests |
 | Documentation/assistant | PASS | API and frontend integration tests passed |
 
-## Security audit
+## Targeted authentication security audit
+
+This section was re-run against commit `7119fe9` and the follow-up verified
+changes.
+
+### JWT secret
+
+**PASS.** `JWT_SECRET_KEY` is required with a minimum length of 32 characters.
+Validation rejects known placeholder prefixes (`change-me`, `replace-with`,
+`generate-a-random`, `your-secret`, `secret-key`, and `default-secret`) and
+low-diversity values. `.env.example` now leaves the value blank, so copying it
+cannot silently configure a known signing key. `Settings(_env_file=None)` tests
+prove missing secrets and placeholder/repeated-character values raise
+validation errors. A repository scan found no committed usable JWT secret;
+test-only secrets are scoped to isolated test fixtures.
+
+### Administrator credentials and provisioning
+
+**PASS.** `ENABLE_DEMO_DATA` defaults to `false`; the default-settings
+regression test confirms it and confirms no default administrator password is
+configured. Demo users are created only when explicitly enabled and all three
+password environment variables are present. Public registration ignores any
+requested role and creates a viewer; the regression test submits an
+administrator role and verifies the resulting account is a viewer. The active
+frontend no longer pre-fills administrator credentials or displays predictable
+demo passwords.
+
+### Password changes and sessions
+
+**PASS.** Access JWTs carry `session_version`; password changes increment the
+stored version. The regression test obtains two independent access tokens,
+changes the password through one session, and verifies both previously issued
+tokens return 401. Login succeeds with the new password. No refresh-token
+endpoint or response field is implemented; the test explicitly verifies login
+does not return `refresh_token`.
 
 Fixed findings:
 
@@ -42,13 +76,14 @@ Not implemented or limited:
 
 ## Test results
 
-- Backend: **20 passed** with `./.venv/bin/python -m pytest -q`.
-- Frontend: **passed** with `cd frontend && npm run build`.
+- Backend: **25 passed** with `./.venv/bin/python -m pytest -q`.
+- Frontend: **passed** with `cd frontend && npm run build` and `npx tsc --noEmit`.
 - Python compilation: **passed** with `python -m compileall -q app`.
 - Bandit: **passed** with `./.venv/bin/bandit -q -r app`.
 - Documentation: **passed** with strict MkDocs build.
 - Live API: **passed** for health, registration, login, dashboard, RBAC denial, report exports, and CORS.
 - Browser: **passed** for registration, login, dashboard, and authenticated route loading; zero console errors observed. Two non-fatal browser warnings remain.
+- Targeted authentication audit: **25 backend tests passed**, including missing/placeholder secret rejection, opt-in demo provisioning, registration role escalation prevention, multi-session invalidation, and no-refresh-token assertions.
 
 ## Deployment and CI
 

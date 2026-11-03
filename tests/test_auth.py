@@ -2,12 +2,16 @@ from datetime import UTC, datetime, timedelta
 import os
 
 import jwt
+import pytest
+
+from app.core.config import Settings
 
 
 def test_valid_login_and_me(client):
     response = client.post("/api/v1/auth/login", json={"username": "viewer", "password": "viewer123!"})
     assert response.status_code == 200
     token = response.json()["access_token"]
+    assert "refresh_token" not in response.json()
 
     me = client.get("/api/v1/auth/me", headers={"Authorization": "Bearer " + token})
     assert me.status_code == 200
@@ -96,22 +100,54 @@ def test_disabled_account_denied(client):
 
 
 def test_password_change_invalidates_existing_session(client):
-    login = client.post(
+    first_login = client.post(
         "/api/v1/auth/login",
         json={"username": "viewer", "password": "viewer123!"},
     )
-    token = login.json()["access_token"]
-    headers = {"Authorization": "Bearer " + token}
+    second_login = client.post(
+        "/api/v1/auth/login",
+        json={"username": "viewer", "password": "viewer123!"},
+    )
+    first_headers = {"Authorization": "Bearer " + first_login.json()["access_token"]}
+    second_headers = {"Authorization": "Bearer " + second_login.json()["access_token"]}
     changed = client.patch(
         "/api/v1/auth/me",
-        headers=headers,
+        headers=first_headers,
         json={"password": "viewer456!"},
     )
     assert changed.status_code == 200
-    me = client.get("/api/v1/auth/me", headers=headers)
-    assert me.status_code == 401
+    assert client.get("/api/v1/auth/me", headers=first_headers).status_code == 401
+    assert client.get("/api/v1/auth/me", headers=second_headers).status_code == 401
     new_login = client.post(
         "/api/v1/auth/login",
         json={"username": "viewer", "password": "viewer456!"},
     )
     assert new_login.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "secret",
+    [
+        "generate-a-random-secret-at-least-32-characters",
+        "replace-with-a-random-secret-value-123456",
+        "a" * 32,
+    ],
+)
+def test_insecure_jwt_secrets_are_rejected(secret):
+    with pytest.raises(ValueError, match="JWT_SECRET_KEY"):
+        Settings(_env_file=None, JWT_SECRET_KEY=secret)
+
+
+def test_missing_jwt_secret_is_rejected(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError, match="JWT_SECRET_KEY"):
+        Settings(_env_file=None)
+
+
+def test_demo_accounts_are_disabled_by_default():
+    settings = Settings(
+        _env_file=None,
+        JWT_SECRET_KEY="secure-test-secret-with-enough-entropy-123456",
+    )
+    assert settings.ENABLE_DEMO_DATA is False
+    assert settings.ADMIN_PASSWORD is None
