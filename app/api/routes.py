@@ -226,7 +226,9 @@ def update_policy_config(
 
 
 def _rule_response(rule: PolicyRule) -> dict:
-    split = lambda value: [item for item in value.split(",") if item]
+    def split(value: str) -> list[str]:
+        return [item for item in value.split(",") if item]
+
     return {
         "id": rule.id,
         "name": rule.name,

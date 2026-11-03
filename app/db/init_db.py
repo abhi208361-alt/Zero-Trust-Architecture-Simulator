@@ -49,6 +49,7 @@ def get_default_users() -> list[dict]:
         },
     ]
 
+
 DEFAULT_DOCUMENTATION = {
     "slug": "overview",
     "title": "Zero Trust Architecture Simulator",
