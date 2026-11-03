@@ -57,7 +57,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     token = create_access_token(user.username, user.session_version)
     return {
         "access_token": token,
-        "token_type": "bearer",
+        "token_type": "bearer",  # nosec B105
         "expires_at": datetime.now(timezone.utc),
     }
 

@@ -29,7 +29,7 @@ def create_access_token(subject: str) -> tuple[str, datetime, str]:
         "exp": expire,
         "iat": datetime.now(UTC),
         "jti": jti,
-        "token_type": "access",
+        "token_type": "access",  # nosec B105
     }
     token = jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
     return token, expire, jti

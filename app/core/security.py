@@ -33,7 +33,7 @@ def create_access_token(subject: str, session_version: int = 0) -> str:
         "exp": expires_at,
         "iat": datetime.now(UTC),
         "jti": uuid4().hex,
-        "token_type": "access",
+        "token_type": "access",  # nosec B105
         "session_version": session_version,
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.ALGORITHM)
