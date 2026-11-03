@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     VIEWER_PASSWORD: str | None = Field(default=None, min_length=8)
     ANALYST_PASSWORD: str | None = Field(default=None, min_length=8)
     ADMIN_PASSWORD: str | None = Field(default=None, min_length=8)
+    AUTH_RATE_LIMIT_ATTEMPTS: int = Field(default=5, ge=1)
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: int = Field(default=60, ge=1)
+    ADMIN_RATE_LIMIT_ATTEMPTS: int = Field(default=30, ge=1)
+    ADMIN_RATE_LIMIT_WINDOW_SECONDS: int = Field(default=60, ge=1)
 
     @field_validator("JWT_SECRET_KEY")
     @classmethod

@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Cancel in-progress runs
@@ -31,6 +31,12 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/ --tb=short
 
+      - name: Validate migrations
+        run: |
+          export JWT_SECRET_KEY=ci-only-secret-with-enough-entropy-123456
+          export DATABASE_URL=sqlite:///ci-migration.db
+          python -m alembic upgrade head
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -50,7 +56,7 @@ print('Security headers middleware validation complete')
 "
 
   bandit:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs: test
     steps:
       - name: Checkout repository
@@ -62,7 +68,7 @@ print('Security headers middleware validation complete')
           python-version: "3.13"
 
       - name: Install bandit
-        run: python -m pip install bandit
+        run: python -m pip install bandit pip-audit
 
       - name: Run Bandit security scan
         run: python -m bandit -r app/ --format json -o bandit-results.json
@@ -116,3 +122,13 @@ print('Security headers middleware validation complete')
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [test, bandit, frontend]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build --tag zero-trust-architecture-simulator:${{ github.sha }} .

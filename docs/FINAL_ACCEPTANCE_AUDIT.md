@@ -2,9 +2,9 @@
 
 ## Overall result
 
-**CONDITIONALLY ACCEPTED FOR LOCAL/CONTAINERIZED DEMONSTRATION.** The application was independently exercised after commit `582af59`. Two release-blocking defects were found and fixed: public registration used an invalid ORM field and legacy committed databases caused dashboard/audit queries to fail. The fixes were regression-tested and verified against the live API, browser, and Docker runtime.
+**CONDITIONALLY ACCEPTED FOR LOCAL/CONTAINERIZED DEMONSTRATION.** The application was independently exercised after commit `582af59`. Two release-blocking defects were found and fixed: public registration used an invalid ORM field and legacy committed databases caused dashboard/audit queries to fail. Rate limiting and Alembic migrations were subsequently added and regression-tested.
 
-Production readiness is not declared because hosted GitHub Actions and Docker Compose execution were unavailable in this environment, and rate limiting/session listing are not implemented.
+Production readiness is not declared because hosted GitHub Actions and Docker Compose execution were unavailable in this environment, and distributed rate limiting/session listing are not implemented.
 
 ## Feature verification
 
@@ -21,6 +21,8 @@ Production readiness is not declared because hosted GitHub Actions and Docker Co
 | CSV/PDF reports | PASS | Live exports returned 200; CSV contained headers/records and PDF identified as PDF 1.4 |
 | User/profile/settings | PASS | Profile/password update and session invalidation covered by regression tests |
 | Documentation/assistant | PASS | API and frontend integration tests passed |
+| Rate limiting | PASS | Login, registration, and administrator endpoint tests return HTTP 429 with `Retry-After` |
+| Database migrations | PASS | Alembic upgrade/rollback and legacy user/audit record preservation tests passed |
 
 ## Targeted authentication security audit
 
@@ -76,10 +78,11 @@ Not implemented or limited:
 
 ## Test results
 
-- Backend: **25 passed** with `./.venv/bin/python -m pytest -q`.
+- Backend: **30 passed** with `./.venv/bin/python -m pytest -q`.
 - Frontend: **passed** with `cd frontend && npm run build` and `npx tsc --noEmit`.
 - Python compilation: **passed** with `python -m compileall -q app`.
 - Bandit: **passed** with `./.venv/bin/bandit -q -r app`.
+- Dependency scan: **passed** with `./.venv/bin/pip-audit -r requirements.txt` after upgrading FastAPI/Starlette, PyJWT, python-multipart, and pytest.
 - Documentation: **passed** with strict MkDocs build.
 - Live API: **passed** for health, registration, login, dashboard, RBAC denial, report exports, and CORS.
 - Browser: **passed** for registration, login, dashboard, and authenticated route loading; zero console errors observed. Two non-fatal browser warnings remain.
@@ -89,8 +92,8 @@ Not implemented or limited:
 
 - Docker image build: **passed**.
 - Docker container startup and `/api/v1/health`: **passed** with an explicit JWT secret and demo data disabled.
-- Docker Compose validation: **NOT RUN/BLOCKED** because neither `docker compose` nor `docker-compose` is installed.
-- GitHub Actions: workflow files inspected and locally consistent; hosted execution **NOT RUN**.
+- Docker Compose file: **syntax validation BLOCKED** because neither `docker compose` nor `docker-compose` is installed; healthcheck, restart policy, persistent bind storage, and secure environment wiring are configured.
+- GitHub Actions: workflow updated for tests, migrations, Bandit, pip-audit, frontend checks, and Docker build; hosted execution **NOT RUN**.
 - `pdftotext` content extraction: **NOT RUN** because the utility is not installed; MIME/file validation and API response checks passed.
 
 ## Defects
@@ -101,11 +104,11 @@ None remaining from this audit.
 
 ### Non-critical defects and limitations
 
-1. Rate limiting is not implemented.
+1. The rate limiter is process-local; production horizontal scaling requires a shared store.
 2. Docker Compose and hosted CI could not be executed in this environment.
 3. Some existing code emits deprecation/security warnings during tests (`datetime.utcnow`, Passlib/crypt, and a deliberately short invalid-signature fixture key).
 4. The local simulator does not enforce device posture outside its simulated request context.
 
 ## Production readiness assessment
 
-The application is suitable for local evaluation and containerized demonstration after the verified fixes. Before production deployment, install and run Docker Compose, execute hosted CI, add rate limiting, formalize schema migrations (for example Alembic), and validate deployment secrets and external enforcement integrations.
+The application is suitable for local evaluation and containerized demonstration after the verified fixes. Before production deployment, run Docker Compose and hosted CI, use a shared rate-limit store for multiple replicas, and validate deployment secrets and external enforcement integrations.

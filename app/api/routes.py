@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.rate_limit import enforce_admin_rate_limit, enforce_auth_rate_limit
 from app.core.security import authenticate_user, create_access_token, get_password_hash, revoke_token, security
 from app.db.session import get_db
 from app.models.audit import AuditLog
@@ -44,7 +45,7 @@ def health():
     return {"status": "ok"}
 
 
-@router.post("/auth/login", response_model=TokenResponse)
+@router.post("/auth/login", response_model=TokenResponse, dependencies=[Depends(enforce_auth_rate_limit)])
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     existing_user = db.scalar(select(User).where(User.username == payload.username))
     if existing_user is not None and not existing_user.is_active:
@@ -99,7 +100,7 @@ def logout(
     return {"message": "Logged out successfully"}
 
 
-@router.post("/auth/register")
+@router.post("/auth/register", dependencies=[Depends(enforce_auth_rate_limit)])
 def register(payload: UserCreateRequest, db: Session = Depends(get_db)):
     existing = db.scalar(select(User).where(User.username == payload.username))
     if existing:
@@ -123,7 +124,7 @@ def register(payload: UserCreateRequest, db: Session = Depends(get_db)):
     return {"message": "User registered successfully"}
 
 
-@router.get("/users", response_model=list[UserResponse])
+@router.get("/users", response_model=list[UserResponse], dependencies=[Depends(enforce_admin_rate_limit)])
 def list_users(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user.role != UserRole.ADMINISTRATOR:
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -131,7 +132,7 @@ def list_users(current_user: User = Depends(get_current_user), db: Session = Dep
     return users
 
 
-@router.patch("/users/{user_id}", response_model=UserResponse)
+@router.patch("/users/{user_id}", response_model=UserResponse, dependencies=[Depends(enforce_admin_rate_limit)])
 def update_user(user_id: int, payload: UserUpdateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user.role != UserRole.ADMINISTRATOR:
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -203,7 +204,7 @@ def get_policy_config(
     return db.query(PolicyConfig).first()
 
 
-@router.put("/policy/config")
+@router.put("/policy/config", dependencies=[Depends(enforce_admin_rate_limit)])
 def update_policy_config(
     payload: PolicyConfigUpdate,
     db: Session = Depends(get_db),
@@ -241,7 +242,7 @@ def _rule_response(rule: PolicyRule) -> dict:
     }
 
 
-@router.get("/policy/rules")
+@router.get("/policy/rules", dependencies=[Depends(enforce_admin_rate_limit)])
 def list_policy_rules(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -251,7 +252,7 @@ def list_policy_rules(
     return [_rule_response(rule) for rule in db.query(PolicyRule).order_by(PolicyRule.priority)]
 
 
-@router.post("/policy/rules", status_code=201)
+@router.post("/policy/rules", status_code=201, dependencies=[Depends(enforce_admin_rate_limit)])
 def create_policy_rule(
     payload: PolicyRuleRequest,
     current_user: User = Depends(get_current_user),
@@ -277,7 +278,7 @@ def create_policy_rule(
     return _rule_response(rule)
 
 
-@router.patch("/policy/rules/{rule_id}")
+@router.patch("/policy/rules/{rule_id}", dependencies=[Depends(enforce_admin_rate_limit)])
 def update_policy_rule(
     rule_id: int,
     payload: PolicyRuleRequest,
@@ -300,7 +301,7 @@ def update_policy_rule(
     return _rule_response(rule)
 
 
-@router.delete("/policy/rules/{rule_id}", status_code=204)
+@router.delete("/policy/rules/{rule_id}", status_code=204, dependencies=[Depends(enforce_admin_rate_limit)])
 def delete_policy_rule(
     rule_id: int,
     current_user: User = Depends(get_current_user),
@@ -382,7 +383,7 @@ def dashboard_metrics(db: Session = Depends(get_db), current_user: User = Depend
     ).model_dump()
 
 
-@router.get("/security-tests/run")
+@router.get("/security-tests/run", dependencies=[Depends(enforce_admin_rate_limit)])
 def security_tests(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != UserRole.ADMINISTRATOR:
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -409,7 +410,7 @@ def security_tests(db: Session = Depends(get_db), current_user: User = Depends(g
     return {"results": results}
 
 
-@router.get("/reports/csv")
+@router.get("/reports/csv", dependencies=[Depends(enforce_admin_rate_limit)])
 def reports_csv(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -424,7 +425,7 @@ def reports_csv(
     )
 
 
-@router.get("/reports/pdf")
+@router.get("/reports/pdf", dependencies=[Depends(enforce_admin_rate_limit)])
 def reports_pdf(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -439,7 +440,7 @@ def reports_pdf(
     )
 
 
-@router.get("/risk-analysis")
+@router.get("/risk-analysis", dependencies=[Depends(enforce_admin_rate_limit)])
 def risk_analysis(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != UserRole.ADMINISTRATOR:
         raise HTTPException(status_code=403, detail="Forbidden")

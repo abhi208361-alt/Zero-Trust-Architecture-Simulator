@@ -4,8 +4,24 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: sqlite:///./app.db
+      DATABASE_URL: sqlite:////app/app.db
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY to a random secret of at least 32 characters}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      ENABLE_DEMO_DATA: ${ENABLE_DEMO_DATA:-false}
+      AUTH_RATE_LIMIT_ATTEMPTS: ${AUTH_RATE_LIMIT_ATTEMPTS:-5}
+      AUTH_RATE_LIMIT_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_WINDOW_SECONDS:-60}
+      ADMIN_RATE_LIMIT_ATTEMPTS: ${ADMIN_RATE_LIMIT_ATTEMPTS:-30}
+      ADMIN_RATE_LIMIT_WINDOW_SECONDS: ${ADMIN_RATE_LIMIT_WINDOW_SECONDS:-60}
     volumes:
       - ./app.db:/app/app.db
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s

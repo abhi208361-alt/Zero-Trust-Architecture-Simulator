@@ -151,3 +151,60 @@ def test_demo_accounts_are_disabled_by_default():
     )
     assert settings.ENABLE_DEMO_DATA is False
     assert settings.ADMIN_PASSWORD is None
+
+
+def test_login_rate_limit_returns_retry_after(client):
+    for _ in range(5):
+        response = client.post(
+            "/api/v1/auth/login",
+            json={"username": "viewer", "password": "wrongpass1!"},
+        )
+        assert response.status_code == 401
+
+    limited = client.post(
+        "/api/v1/auth/login",
+        json={"username": "viewer", "password": "wrongpass1!"},
+    )
+    assert limited.status_code == 429
+    assert int(limited.headers["Retry-After"]) >= 1
+
+
+def test_registration_rate_limit_returns_retry_after(client):
+    for index in range(5):
+        response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "full_name": f"Rate Limited {index}",
+                "email": f"rate-limited-{index}@example.com",
+                "username": f"ratelimited{index}",
+                "password": "registered123!",
+            },
+        )
+        assert response.status_code == 200
+
+    limited = client.post(
+        "/api/v1/auth/register",
+        json={
+            "full_name": "Rate Limited Final",
+            "email": "rate-limited-final@example.com",
+            "username": "ratelimitedfinal",
+            "password": "registered123!",
+        },
+    )
+    assert limited.status_code == 429
+    assert int(limited.headers["Retry-After"]) >= 1
+
+
+def test_admin_endpoint_rate_limit_returns_retry_after(client):
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": "admin123!"},
+    )
+    headers = {"Authorization": "Bearer " + login.json()["access_token"]}
+    for _ in range(30):
+        response = client.get("/api/v1/security-tests/run", headers=headers)
+        assert response.status_code == 200
+
+    limited = client.get("/api/v1/security-tests/run", headers=headers)
+    assert limited.status_code == 429
+    assert int(limited.headers["Retry-After"]) >= 1

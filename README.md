@@ -54,6 +54,17 @@ docker run --rm -p 8000:8000 \
 The repository also includes `docker-compose.yml`; use it with Docker Compose
 when the Compose plugin is installed.
 
+Database schema changes are managed with Alembic:
+
+```bash
+export DATABASE_URL=sqlite:///./app.db
+python -m alembic upgrade head
+```
+
+Authentication and administrator endpoint limits are configurable with
+`AUTH_RATE_LIMIT_ATTEMPTS`, `AUTH_RATE_LIMIT_WINDOW_SECONDS`,
+`ADMIN_RATE_LIMIT_ATTEMPTS`, and `ADMIN_RATE_LIMIT_WINDOW_SECONDS`.
+
 ## API highlights
 
 - `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `PATCH /api/v1/auth/me`

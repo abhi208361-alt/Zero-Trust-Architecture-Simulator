@@ -8,11 +8,13 @@ from app.db.init_db import init_defaults
 from app.db.session import SessionLocal
 from app.db.session import engine
 from app.models import __init__  # noqa: F401
+from app.core.rate_limit import rate_limiter
 from sqlalchemy import inspect, text
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    rate_limiter.clear()
     Base.metadata.create_all(bind=engine)
     _upgrade_existing_schema()
     with SessionLocal() as db:
@@ -37,10 +39,16 @@ def _upgrade_existing_schema() -> None:
         return
     columns = {column["name"] for column in inspector.get_columns("users")}
     with engine.begin() as connection:
-        if "session_version" not in columns:
-            connection.execute(
-                text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0")
-            )
+        additions = {
+            "display_name": "VARCHAR(120) NOT NULL DEFAULT ''",
+            "theme": "VARCHAR(20) NOT NULL DEFAULT 'system'",
+            "timezone": "VARCHAR(64) NOT NULL DEFAULT 'UTC'",
+            "notification_preferences": "VARCHAR NOT NULL DEFAULT '{}'",
+            "session_version": "INTEGER NOT NULL DEFAULT 0",
+        }
+        for column, definition in additions.items():
+            if column not in columns:
+                connection.execute(text(f"ALTER TABLE users ADD COLUMN {column} {definition}"))
     _upgrade_audit_schema(inspect(engine))
 
 
