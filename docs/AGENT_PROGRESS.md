@@ -21,16 +21,16 @@
 | 17. Security monitoring | TESTED | Audit filtering, pagination, dashboard recent events, and security tests are available | No streaming event bus |
 | 18. Audit logs | TESTED | Audit persistence, filters, pagination, correlation IDs, and role protection covered | Legacy schema fields are not exposed |
 | 19. Reports/exports | TESTED | CSV/PDF downloads are wired and container smoke-tested | Hosted CI artifact verification pending |
-| 20. Settings/documentation | TESTED | Profile settings save through API; documentation loads from API | Additional documentation slugs can be added as content |
+| 20. Settings/documentation | TESTED | Profile/settings routes save through API; documentation loads from API; notifications are derived from persisted audit events with read-state persistence | Additional documentation slugs can be added as content |
 | 21. Security assistant | TESTED | Local assistant endpoint and UI send/receive flow implemented | No paid/external AI provider by design |
-| 22. Integration/deployment verification | VERIFIED | 30 backend tests, migration checks, frontend build/type check, Python compile, docs, Bandit, Docker build/runtime health, and API checks pass | Compose runtime command and hosted CI execution unavailable in this environment |
+| 22. Integration/deployment verification | VERIFIED | 30 backend tests, migration checks, frontend build/type check, Python compile, docs, Bandit, Docker build/runtime health, API checks, and hosted CI run `41691584250` pass | Compose runtime command unavailable in this environment |
 
 ## Verification state
 
 - Backend tests: **30 passed** in the isolated `.venv`.
 - Frontend build/type check: **passed** with Vite and TypeScript.
-- CI workflow: **updated** for migrations, backend/frontend/security checks, and Docker build; hosted run not available in this session.
+- CI workflow: **updated and hosted-verified**; run `41691584250` passed migrations, backend/frontend/security checks, lint/docs, and Docker build.
 - Docker build/startup/health: **passed**; Compose CLI validation **blocked** because neither `docker compose` nor `docker-compose` is installed.
 - API smoke checks: **passed** for health, registration, login, dashboard, role protection, exports, and CORS.
 - Browser automation: **passed** for registration, login, dashboard, and all authenticated navigation routes; zero console errors observed.
-- Hosted GitHub Actions: **not run**; repository workflow configuration was validated locally, but hosted execution is outside this session.
+- Hosted GitHub Actions: **passed** in run `41691584250`; non-blocking runner deprecation warnings remain.

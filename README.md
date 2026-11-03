@@ -28,6 +28,12 @@ Demo users are disabled by default. For isolated local demonstrations only, set
 in a shared or production deployment.
 
 ## Backend setup
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+export JWT_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ## Frontend setup
