@@ -22,13 +22,10 @@ A local educational simulator for Zero Trust security, RBAC, least-privilege acc
 - analyst
 - administrator
 
-## Default users
-- viewer / viewer123!
-- analyst / analyst123!
-- admin / admin123!
-
-Note:
-These are development/demo credentials only and should be changed or overridden in a real environment.
+Demo users are disabled by default. For isolated local demonstrations only, set
+`ENABLE_DEMO_DATA=true` and provide `VIEWER_PASSWORD`, `ANALYST_PASSWORD`, and
+`ADMIN_PASSWORD` through environment variables. Never use fixed demo passwords
+in a shared or production deployment.
 
 ## Backend setup
 ```

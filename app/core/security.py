@@ -26,7 +26,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(subject: str) -> str:
+def create_access_token(subject: str, session_version: int = 0) -> str:
     expires_at = datetime.now(UTC) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": subject,
@@ -34,6 +34,7 @@ def create_access_token(subject: str) -> str:
         "iat": datetime.now(UTC),
         "jti": uuid4().hex,
         "token_type": "access",
+        "session_version": session_version,
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.ALGORITHM)
 

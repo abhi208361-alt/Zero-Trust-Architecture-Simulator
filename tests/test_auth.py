@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+import os
 
 import jwt
 
@@ -9,6 +10,32 @@ def test_valid_login_and_me(client):
     token = response.json()["access_token"]
 
     me = client.get("/api/v1/auth/me", headers={"Authorization": "Bearer " + token})
+    assert me.status_code == 200
+    assert me.json()["role"] == "viewer"
+
+
+def test_registration_creates_viewer_account(client):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "full_name": "Registered User",
+            "email": "registered@example.com",
+            "username": "registered",
+            "password": "registered123!",
+            "role": "administrator",
+        },
+    )
+    assert response.status_code == 200
+
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"username": "registered", "password": "registered123!"},
+    )
+    assert login.status_code == 200
+    me = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": "Bearer " + login.json()["access_token"]},
+    )
     assert me.status_code == 200
     assert me.json()["role"] == "viewer"
 
@@ -37,7 +64,7 @@ def test_expired_token_denied(client):
         "iat": datetime.now(UTC) - timedelta(hours=1),
         "exp": datetime.now(UTC) - timedelta(minutes=1),
     }
-    token = jwt.encode(expired_payload, "test-secret-key-1234567890", algorithm="HS256")
+    token = jwt.encode(expired_payload, os.environ["JWT_SECRET_KEY"], algorithm="HS256")
     response = client.get("/api/v1/auth/me", headers={"Authorization": "Bearer " + token})
     assert response.status_code == 401
     assert response.json()["detail"] == "Token expired"
@@ -66,3 +93,25 @@ def test_disabled_account_denied(client):
 
     response = client.post("/api/v1/auth/login", json={"username": "viewer", "password": "viewer123!"})
     assert response.status_code == 403
+
+
+def test_password_change_invalidates_existing_session(client):
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"username": "viewer", "password": "viewer123!"},
+    )
+    token = login.json()["access_token"]
+    headers = {"Authorization": "Bearer " + token}
+    changed = client.patch(
+        "/api/v1/auth/me",
+        headers=headers,
+        json={"password": "viewer456!"},
+    )
+    assert changed.status_code == 200
+    me = client.get("/api/v1/auth/me", headers=headers)
+    assert me.status_code == 401
+    new_login = client.post(
+        "/api/v1/auth/login",
+        json={"username": "viewer", "password": "viewer456!"},
+    )
+    assert new_login.status_code == 200

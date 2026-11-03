@@ -53,7 +53,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_access_token(user.username)
+    token = create_access_token(user.username, user.session_version)
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -83,6 +83,7 @@ def update_profile(
         current_user.full_name = payload.full_name
     if payload.password is not None:
         current_user.password_hash = get_password_hash(payload.password)
+        current_user.session_version += 1
     db.commit()
     db.refresh(current_user)
     return current_user
@@ -111,7 +112,8 @@ def register(payload: UserCreateRequest, db: Session = Depends(get_db)):
         username=payload.username,
         email=payload.email,
         full_name=payload.full_name,
-        hashed_password=get_password_hash(payload.password),
+        display_name=payload.full_name,
+        password_hash=get_password_hash(payload.password),
         role=UserRole.VIEWER,
         is_active=True,
     )
