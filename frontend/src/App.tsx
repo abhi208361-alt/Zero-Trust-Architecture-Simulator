@@ -338,8 +338,8 @@ function LoginPage({
   setCurrentUser: (v: User | null) => void
 }) {
   const navigate = useNavigate()
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('admin123!')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -534,6 +534,7 @@ function RegisterPage() {
 }
 
 function DashboardPage({ token, currentUser }: { token: string; currentUser: User | null }) {
+  const navigate = useNavigate()
   const [metrics, setMetrics] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -558,7 +559,7 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
       <div className="panel">
         <div className="panel-header">
           <span>Network Map</span>
-          <button className="tiny-button" type="button">
+          <button className="tiny-button" type="button" onClick={() => navigate('/network-map')}>
             Live
           </button>
         </div>
@@ -576,7 +577,7 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
       <div className="panel">
         <div className="panel-header">
           <span>Reports</span>
-          <button className="tiny-button" type="button">
+          <button className="tiny-button" type="button" onClick={() => navigate('/reports')}>
             Generate
           </button>
         </div>
@@ -593,7 +594,7 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
       <div className="panel">
         <div className="panel-header">
           <span>Risk Analysis</span>
-          <button className="tiny-button" type="button">
+          <button className="tiny-button" type="button" onClick={() => navigate('/risk-analysis')}>
             View
           </button>
         </div>
@@ -621,7 +622,7 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
       <div className="panel">
         <div className="panel-header">
           <span>Security Testing</span>
-          <button className="tiny-button" type="button">
+          <button className="tiny-button" type="button" onClick={() => navigate('/security-testing')}>
             Run
           </button>
         </div>
@@ -648,7 +649,7 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
       <div className="panel">
         <div className="panel-header">
           <span>Investigations</span>
-          <button className="tiny-button" type="button">
+          <button className="tiny-button" type="button" onClick={() => navigate('/investigations')}>
             Open
           </button>
         </div>
@@ -679,14 +680,14 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
       <div className="panel">
         <div className="panel-header">
           <span>AI Assistant</span>
-          <button className="tiny-button" type="button">
+          <button className="tiny-button" type="button" onClick={() => navigate('/assistant')}>
             Ask
           </button>
         </div>
 
         <div className="assistant-box">
           <p>What are the main policy violations in the current environment?</p>
-          <button className="primary-button small" type="button">
+          <button className="primary-button small" type="button" onClick={() => navigate('/assistant')}>
             Run analysis
           </button>
         </div>
@@ -695,7 +696,7 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
       <div className="panel">
         <div className="panel-header">
           <span>Documentation</span>
-          <button className="tiny-button" type="button">
+          <button className="tiny-button" type="button" onClick={() => navigate('/documentation')}>
             Open
           </button>
         </div>
@@ -711,7 +712,7 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
       <div className="panel">
         <div className="panel-header">
           <span>Settings</span>
-          <button className="tiny-button" type="button">
+          <button className="tiny-button" type="button" onClick={() => navigate('/settings')}>
             Update
           </button>
         </div>
@@ -739,8 +740,8 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
         </div>
         {!token ? (
           <form className="mini-form" onSubmit={(e) => e.preventDefault()}>
-            <input placeholder="Username" defaultValue="admin" />
-            <input type="password" placeholder="Password" defaultValue="admin123!" />
+            <input placeholder="Username" />
+            <input type="password" placeholder="Password" />
             <button type="submit" className="primary-button small">Sign In</button>
           </form>
         ) : (
@@ -905,6 +906,8 @@ function UsersPage({ token, currentUser }: { token: string; currentUser: User | 
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('all')
 
   useEffect(() => {
     const load = async () => {
@@ -926,9 +929,9 @@ function UsersPage({ token, currentUser }: { token: string; currentUser: User | 
       <h2>Users & Roles</h2>
 
       <div className="toolbar">
-        <input placeholder="Search" />
-        <select>
-          <option>All roles</option>
+        <input placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+          <option value="all">All roles</option>
           <option>viewer</option>
           <option>analyst</option>
           <option>administrator</option>
@@ -953,7 +956,10 @@ function UsersPage({ token, currentUser }: { token: string; currentUser: User | 
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
+            {users.filter((user) => (
+              (roleFilter === 'all' || user.role === roleFilter) &&
+              user.username.toLowerCase().includes(search.toLowerCase())
+            )).map((user) => (
               <tr key={user.id}>
                 <td>{user.username}</td>
                 <td>{user.role}</td>
@@ -963,8 +969,16 @@ function UsersPage({ token, currentUser }: { token: string; currentUser: User | 
                   </span>
                 </td>
                 <td>
-                  <button className="tiny-button" type="button">
-                    Edit
+                  <button className="tiny-button" type="button" onClick={async () => {
+                    const nextRole = user.role === 'viewer' ? 'analyst' : user.role === 'analyst' ? 'administrator' : 'viewer'
+                    try {
+                      await apiFetch(`/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ role: nextRole }) }, token)
+                      setUsers((current) => current.map((item) => item.id === user.id ? { ...item, role: nextRole } : item))
+                    } catch (e) {
+                      setError((e as Error).message)
+                    }
+                  }}>
+                    Cycle role
                   </button>
                 </td>
               </tr>
@@ -1155,7 +1169,16 @@ function ReportsPage({ token }: { token: string }) {
 
   const downloadCsv = async () => {
     try {
-      await apiFetch('/reports/csv', { method: 'GET' }, token)
+      const response = await fetch(`${API}/reports/csv`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!response.ok) throw new Error('CSV export failed')
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'zero-trust-audit.csv'
+      link.click()
+      URL.revokeObjectURL(url)
+      setReportStatus('CSV report downloaded.')
     } catch (e) {
       setErrorMessage((e as Error).message)
     }
@@ -1163,7 +1186,16 @@ function ReportsPage({ token }: { token: string }) {
 
   const downloadPdf = async () => {
     try {
-      await apiFetch('/reports/pdf', { method: 'GET' }, token)
+      const response = await fetch(`${API}/reports/pdf`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!response.ok) throw new Error('PDF export failed')
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'zero-trust-audit.pdf'
+      link.click()
+      URL.revokeObjectURL(url)
+      setReportStatus('PDF report downloaded.')
     } catch (e) {
       setErrorMessage((e as Error).message)
     }
@@ -1329,6 +1361,23 @@ function InvestigationsPage({ token }: { token: string }) {
 function AssistantPage({ token }: { token: string }) {
   const [messages, setMessages] = useState<any[]>([])
   const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const send = async () => {
+    if (!input.trim() || loading) return
+    const message = input.trim()
+    setInput('')
+    setMessages((current) => [...current, { id: `${Date.now()}-user`, role: 'user', content: message }])
+    setLoading(true)
+    try {
+      const result = await apiFetch('/assistant', { method: 'POST', body: JSON.stringify({ message }) }, token)
+      setMessages((current) => [...current, { id: `${Date.now()}-assistant`, role: 'assistant', content: result.answer }])
+    } catch (e) {
+      setMessages((current) => [...current, { id: `${Date.now()}-error`, role: 'assistant', content: (e as Error).message }])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="page-card">
@@ -1354,9 +1403,10 @@ function AssistantPage({ token }: { token: string }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask the AI assistant..."
+          onKeyDown={(e) => { if (e.key === 'Enter') void send() }}
         />
-        <button className="primary-button" type="button">
-          Send
+        <button className="primary-button" type="button" onClick={() => void send()} disabled={loading}>
+          {loading ? 'Sending...' : 'Send'}
         </button>
       </div>
     </div>
@@ -1364,13 +1414,17 @@ function AssistantPage({ token }: { token: string }) {
 }
 
 function DocumentationPage({ token }: { token: string }) {
+  const [page, setPage] = useState<any>(null)
+  useEffect(() => {
+    void apiFetch('/documentation?slug=overview', { method: 'GET' }, token).then(setPage).catch(() => undefined)
+  }, [token])
   return (
     <div className="page-card">
       <h2>Documentation</h2>
       <div className="doc-list">
         <div className="doc-item">
           <h3>Overview</h3>
-          <p>Zero Trust Architecture Simulator documentation and architecture overview.</p>
+          <p>{page?.content ?? 'Loading documentation...'}</p>
         </div>
         <div className="doc-item">
           <h3>Authentication</h3>
@@ -1393,6 +1447,30 @@ function SettingsPage({ token }: { token: string }) {
     confirm_password: '',
     theme: 'dark',
   })
+  const [status, setStatus] = useState('')
+  useEffect(() => {
+    void apiFetch('/auth/me', { method: 'GET' }, token).then((user) => setForm((current) => ({
+      ...current,
+      full_name: user.full_name,
+      email: user.email,
+    })))
+  }, [token])
+  const save = async () => {
+    if (form.password && form.password !== form.confirm_password) {
+      setStatus('Passwords do not match.')
+      return
+    }
+    try {
+      await apiFetch('/auth/me', { method: 'PATCH', body: JSON.stringify({
+        full_name: form.full_name,
+        email: form.email,
+        ...(form.password ? { password: form.password } : {}),
+      }) }, token)
+      setStatus('Settings saved.')
+    } catch (e) {
+      setStatus((e as Error).message)
+    }
+  }
 
   return (
     <div className="page-card">
@@ -1432,6 +1510,8 @@ function SettingsPage({ token }: { token: string }) {
           </select>
         </label>
       </div>
+      <button className="primary-button" type="button" onClick={() => void save()}>Save settings</button>
+      {status && <div className="success-banner">{status}</div>}
     </div>
   )
 }

@@ -10,37 +10,45 @@ from app.services.security import get_password_hash
 
 
 def get_default_password(username: str) -> str:
+    settings = get_settings()
     passwords = {
-        "viewer": getattr(get_settings(), "viewer_password", "viewer123!"),
-        "analyst": getattr(get_settings(), "analyst_password", "analyst123!"),
-        "admin": getattr(get_settings(), "admin_password", "admin123!"),
+        "viewer": settings.VIEWER_PASSWORD,
+        "analyst": settings.ANALYST_PASSWORD,
+        "admin": settings.ADMIN_PASSWORD,
     }
-    return passwords.get(username, "change-me-in-env")
+    password = passwords.get(username)
+    if not password:
+        raise RuntimeError(
+            f"{username.upper()}_PASSWORD is required when ENABLE_DEMO_DATA is enabled"
+        )
+    return password
 
 
-DEFAULT_USERS = [
-    {
-        "username": "viewer",
-        "email": "viewer@example.com",
-        "full_name": "Viewer User",
-        "role": UserRole.VIEWER,
-        "password": get_default_password("viewer"),
-    },
-    {
-        "username": "analyst",
-        "email": "analyst@example.com",
-        "full_name": "Analyst User",
-        "role": UserRole.ANALYST,
-        "password": get_default_password("analyst"),
-    },
-    {
-        "username": "admin",
-        "email": "admin@example.com",
-        "full_name": "Administrator User",
-        "role": UserRole.ADMINISTRATOR,
-        "password": get_default_password("admin"),
-    },
-]
+def get_default_users() -> list[dict]:
+    return [
+        {
+            "username": "viewer",
+            "email": "viewer@example.com",
+            "full_name": "Viewer User",
+            "role": UserRole.VIEWER,
+            "password": get_default_password("viewer"),
+        },
+        {
+            "username": "analyst",
+            "email": "analyst@example.com",
+            "full_name": "Analyst User",
+            "role": UserRole.ANALYST,
+            "password": get_default_password("analyst"),
+        },
+        {
+            "username": "admin",
+            "email": "admin@example.com",
+            "full_name": "Administrator User",
+            "role": UserRole.ADMINISTRATOR,
+            "password": get_default_password("admin"),
+        },
+    ]
+
 
 DEFAULT_DOCUMENTATION = {
     "slug": "overview",
@@ -108,7 +116,11 @@ def init_defaults(db: Session) -> None:
             )
         )
 
-    for user_data in DEFAULT_USERS:
+    if not get_settings().ENABLE_DEMO_DATA:
+        db.commit()
+        return
+
+    for user_data in get_default_users():
         if db.scalar(select(User).where(User.username == user_data["username"])):
             continue
 
@@ -117,12 +129,9 @@ def init_defaults(db: Session) -> None:
                 username=user_data["username"],
                 email=user_data["email"],
                 full_name=user_data["full_name"],
-                display_name=user_data["full_name"],
                 role=user_data["role"],
                 password_hash=get_password_hash(user_data["password"]),
                 is_active=True,
-                theme="dark",
-                timezone="UTC",
             )
         )
 

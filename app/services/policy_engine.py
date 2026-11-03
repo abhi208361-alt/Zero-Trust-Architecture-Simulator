@@ -19,44 +19,32 @@ def evaluate_request(
     checks: list[str] = []
     correlation_id = uuid4().hex
 
-    if actor is None:
+    def decision(reason: str, failed: list[str] | None = None, result: str = "deny") -> PolicyDecision:
+        failed_checks = failed or [reason]
         return PolicyDecision(
-            decision="deny",
-            reason="identity not found",
-            checks=["identity lookup failed"],
+            decision=result,
+            reason=reason,
+            checks=checks + failed_checks,
+            failed_checks=failed_checks,
+            applied_policies=["default-deny", "rbac", "contextual-risk"],
+            explanation=reason,
             risk_score=request.simulated_risk_score,
             timestamp=datetime.now(UTC),
             correlation_id=correlation_id,
-            user=request.username,
+            request_id=correlation_id,
+            user=actor.username if actor else request.username,
             resource=request.resource,
             action=request.action,
         )
+
+    if actor is None:
+        return decision("identity not found", ["identity lookup failed"])
 
     if not actor.is_active:
-        return PolicyDecision(
-            decision="deny",
-            reason="account disabled",
-            checks=["account status inactive"],
-            risk_score=request.simulated_risk_score,
-            timestamp=datetime.now(UTC),
-            correlation_id=correlation_id,
-            user=actor.username,
-            resource=request.resource,
-            action=request.action,
-        )
+        return decision("account disabled", ["account status inactive"])
 
     if not token_valid:
-        return PolicyDecision(
-            decision="deny",
-            reason="token invalid",
-            checks=["token validity failed"],
-            risk_score=request.simulated_risk_score,
-            timestamp=datetime.now(UTC),
-            correlation_id=correlation_id,
-            user=actor.username,
-            resource=request.resource,
-            action=request.action,
-        )
+        return decision("token invalid", ["token validity failed"])
 
     policy = db.scalar(select(PolicyConfig).where(PolicyConfig.id == 1))
     if policy is None:
@@ -67,17 +55,7 @@ def evaluate_request(
 
     sensitivity = RESOURCE_SENSITIVITY.get(request.resource)
     if not sensitivity:
-        return PolicyDecision(
-            decision="deny",
-            reason="unknown resource",
-            checks=["resource is not registered"],
-            risk_score=request.simulated_risk_score,
-            timestamp=datetime.now(UTC),
-            correlation_id=correlation_id,
-            user=actor.username,
-            resource=request.resource,
-            action=request.action,
-        )
+        return decision("unknown resource", ["resource is not registered"])
 
     checks.append(f"resource sensitivity={sensitivity} (simulated policy metadata)")
     checks.append(f"device_trusted={request.simulated_device_trusted} (simulated signal)")
@@ -85,55 +63,23 @@ def evaluate_request(
 
     allowed, reason = has_permission(actor.role, request.resource, request.action)
     if not allowed:
-        return PolicyDecision(
-            decision="deny",
-            reason=reason,
-            checks=checks + ["RBAC check failed"],
-            risk_score=request.simulated_risk_score,
-            timestamp=datetime.now(UTC),
-            correlation_id=correlation_id,
-            user=actor.username,
-            resource=request.resource,
-            action=request.action,
-        )
+        return decision(reason, ["RBAC check failed"])
 
     if sensitivity == "high" and policy.require_trusted_device_for_high_sensitivity and not request.simulated_device_trusted:
-        return PolicyDecision(
-            decision="deny",
-            reason="trusted device required",
-            checks=checks + ["high sensitivity trusted-device requirement failed"],
-            risk_score=request.simulated_risk_score,
-            timestamp=datetime.now(UTC),
-            correlation_id=correlation_id,
-            user=actor.username,
-            resource=request.resource,
-            action=request.action,
+        return decision(
+            "trusted device required",
+            ["high sensitivity trusted-device requirement failed"],
+            "step_up_authentication",
         )
 
     if sensitivity == "high" and policy.require_mfa_for_high_sensitivity and not request.simulated_mfa_passed:
-        return PolicyDecision(
-            decision="deny",
-            reason="mfa required",
-            checks=checks + ["high sensitivity MFA requirement failed"],
-            risk_score=request.simulated_risk_score,
-            timestamp=datetime.now(UTC),
-            correlation_id=correlation_id,
-            user=actor.username,
-            resource=request.resource,
-            action=request.action,
-        )
+        return decision("mfa required", ["high sensitivity MFA requirement failed"], "require_mfa")
 
     if request.simulated_risk_score > policy.risk_threshold:
-        return PolicyDecision(
-            decision="deny",
-            reason="risk threshold exceeded",
-            checks=checks + [f"risk score {request.simulated_risk_score} > threshold {policy.risk_threshold}"],
-            risk_score=request.simulated_risk_score,
-            timestamp=datetime.now(UTC),
-            correlation_id=correlation_id,
-            user=actor.username,
-            resource=request.resource,
-            action=request.action,
+        return decision(
+            "risk threshold exceeded",
+            [f"risk score {request.simulated_risk_score} > threshold {policy.risk_threshold}"],
+            "deny",
         )
 
     return PolicyDecision(
@@ -146,4 +92,7 @@ def evaluate_request(
         user=actor.username,
         resource=request.resource,
         action=request.action,
+        request_id=correlation_id,
+        applied_policies=["default-deny", "rbac", "contextual-risk"],
+        explanation="all zero-trust checks passed",
     )

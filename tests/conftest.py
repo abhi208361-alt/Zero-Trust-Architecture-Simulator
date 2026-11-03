@@ -12,8 +12,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 def client(tmp_path, monkeypatch):
     db_file = tmp_path / "test.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_file}")
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-key-1234567890")
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-key-for-automated-tests-123456")
     monkeypatch.setenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15")
+    monkeypatch.setenv("ENABLE_DEMO_DATA", "true")
+    monkeypatch.setenv("VIEWER_PASSWORD", "viewer123!")
+    monkeypatch.setenv("ANALYST_PASSWORD", "analyst123!")
+    monkeypatch.setenv("ADMIN_PASSWORD", "admin123!")
 
     import app.core.config
     import app.db.session
@@ -31,3 +35,16 @@ def client(tmp_path, monkeypatch):
     test_app = app.main.create_app()
     with TestClient(test_app) as test_client:
         yield test_client
+
+
+@pytest.fixture()
+def auth_headers(client):
+    def _auth_headers(username: str, password: str) -> dict[str, str]:
+        response = client.post(
+            "/api/v1/auth/login",
+            json={"username": username, "password": password},
+        )
+        assert response.status_code == 200
+        return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+    return _auth_headers

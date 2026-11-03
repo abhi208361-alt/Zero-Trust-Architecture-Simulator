@@ -18,7 +18,7 @@ Phase 0: Repository Discovery and Audit
 - Test infrastructure has pre-existing index isolation issue requiring cleanup
 
 ## Known Defects
-- Hardcoded demo passwords in init_db.py (viewer123!, analyst123!, admin123!)
+- Test fixtures use isolated demo passwords; runtime demo accounts are disabled by default and require explicit environment passwords.
 - CORS not configured (allow all by default in FastAPI)
 - No Docker configuration for containerized workflow
 - No PDF report generation implemented

@@ -41,3 +41,50 @@ def test_dashboard_and_security_testing_endpoints(client, auth_headers):
     data = security_test.json()
     assert data["results"]
     assert all("actual" in item and "expected" in item for item in data["results"])
+
+
+def test_admin_management_and_local_assistant_endpoints(client, auth_headers):
+    headers = auth_headers("admin", "admin123!")
+    rules = client.get("/api/v1/policy/rules", headers=headers)
+    assert rules.status_code == 200
+    created = client.post(
+        "/api/v1/policy/rules",
+        headers=headers,
+        json={
+            "name": "temporary rule",
+            "effect": "deny",
+            "priority": 50,
+            "resources": ["resources/admin"],
+            "actions": ["manage"],
+        },
+    )
+    assert created.status_code == 201
+    rule_id = created.json()["id"]
+    assert client.delete(f"/api/v1/policy/rules/{rule_id}", headers=headers).status_code == 204
+
+    rbac = client.get("/api/v1/rbac/matrix", headers=headers)
+    assert rbac.status_code == 200
+    assert "administrator" in rbac.json()["role_permissions"]
+
+    assistant = client.post(
+        "/api/v1/assistant",
+        headers=headers,
+        json={"message": "Explain default deny"},
+    )
+    assert assistant.status_code == 200
+    assert assistant.json()["mode"] == "local"
+
+
+def test_profile_update_and_documentation(client, auth_headers):
+    headers = auth_headers("viewer", "viewer123!")
+    profile = client.patch(
+        "/api/v1/auth/me",
+        headers=headers,
+        json={"full_name": "Updated Viewer"},
+    )
+    assert profile.status_code == 200
+    assert profile.json()["full_name"] == "Updated Viewer"
+
+    documentation = client.get("/api/v1/documentation", headers=headers)
+    assert documentation.status_code == 200
+    assert documentation.json()["slug"] == "overview"
