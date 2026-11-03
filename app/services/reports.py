@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime, timezone
-from typing import Any
+from datetime import datetime
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -11,7 +10,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from sqlalchemy.orm import Session
 
 from app.models.audit import AuditLog
-from app.models.user import User
+
 
 def _parse_date(value: str | None) -> datetime | None:
     if not value:
@@ -27,24 +26,21 @@ def get_audit_rows_for_range(db: Session, start: str | None = None, end: str | N
 
     query = db.query(AuditLog)
     if start_dt:
-        query = query.filter(AuditLog.created_at >= start_dt)
+        query = query.filter(AuditLog.timestamp >= start_dt)
     if end_dt:
-        query = query.filter(AuditLog.created_at <= end_dt)
-    return query.order_by(AuditLog.created_at.desc()).all()
+        query = query.filter(AuditLog.timestamp <= end_dt)
+    return query.order_by(AuditLog.timestamp.desc()).all()
 
 def build_csv_report(db: Session, start: str | None = None, end: str | None = None) -> bytes:
     rows = get_audit_rows_for_range(db, start, end)
     output = io.StringIO()
     fieldnames = [
         "id",
-        "created_at",
-        "correlation_id",
-        "event_type",
-        "actor_id",
-        "actor_username",
+        "timestamp",
+        "user",
         "resource",
         "action",
-        "result",
+        "decision",
         "reason",
         "risk_score",
     ]
@@ -54,16 +50,13 @@ def build_csv_report(db: Session, start: str | None = None, end: str | None = No
     for row in rows:
         writer.writerow({
             "id": row.id,
-            "created_at": row.created_at.isoformat() if row.created_at else "",
-            "correlation_id": row.correlation_id,
-            "event_type": row.event_type,
-            "actor_id": row.actor_id,
+            "timestamp": row.timestamp.isoformat() if row.timestamp else "",
+            "user": row.user,
             "resource": row.resource,
             "action": row.action,
-            "result": row.result,
+            "decision": row.decision,
             "reason": row.reason,
             "risk_score": row.risk_score,
-            "actor_username": row.actor_username or "",
         })
 
     return output.getvalue().encode("utf-8")
@@ -80,8 +73,8 @@ def build_pdf_report(db: Session, start: str | None = None, end: str | None = No
     story.append(Spacer(1, 12))
 
     total = len(rows)
-    allowed = sum(1 for r in rows if r.result == "allow")
-    denied = sum(1 for r in rows if r.result == "deny")
+    allowed = sum(1 for r in rows if r.decision == "allow")
+    denied = sum(1 for r in rows if r.decision == "deny")
 
     summary = [
         ["Metric", "Value"],
@@ -95,11 +88,11 @@ def build_pdf_report(db: Session, start: str | None = None, end: str | None = No
     table_rows = [["Timestamp", "Event", "Actor", "Resource", "Result"]]
     for row in rows[:20]:
         table_rows.append([
-            row.created_at.isoformat() if row.created_at else "",
-            row.event_type,
-            row.actor_username or "",
+            row.timestamp.isoformat() if row.timestamp else "",
+            "access_decision",
+            row.user,
             row.resource,
-            row.result,
+            row.decision,
         ])
 
     table = Table(table_rows, colWidths=[120, 120, 90, 100, 60])

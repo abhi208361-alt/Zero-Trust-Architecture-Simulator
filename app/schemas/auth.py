@@ -32,9 +32,15 @@ class UserUpdateRequest(BaseModel):
     is_active: bool | None = None
 
 
+class ProfileUpdateRequest(BaseModel):
+    full_name: str | None = Field(default=None, min_length=2, max_length=120)
+    email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
 class UserCreateRequest(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=120)
     password: str = Field(min_length=8, max_length=128)
-    role: UserRole
+    role: UserRole | None = None

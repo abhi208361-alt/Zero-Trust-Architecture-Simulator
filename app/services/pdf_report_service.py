@@ -1,8 +1,8 @@
-\"\"\"PDF Report Generation Service - Zero Trust Architecture Simulator
+"""PDF Report Generation Service - Zero Trust Architecture Simulator
 
 Generates formal findings documentation from audit data.
 Phase 9: PDF Report Generation
-\"\"\"
+"""
 
 from datetime import datetime
 from typing import List, Dict, Any, Optional
@@ -34,7 +34,7 @@ class PolicyDecision:
 
 
 class PDFReportService:
-    \"\"\"Service for generating PDF reports from audit data.\"\"\"
+    """Service for generating PDF reports from policy decisions."""
 
     def generate_policy_decisions_report(
         self,
@@ -42,7 +42,7 @@ class PDFReportService:
         title: str = "Zero Trust Architecture Policy Decisions Report",
         output_path: str = "reports/policy_decisions.pdf"
     ) -> str:
-        \"\"\"Generate a PDF report from policy decisions.\"\"\"
+        """Generate a plain-text fallback report from policy decisions."""
         import os
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 

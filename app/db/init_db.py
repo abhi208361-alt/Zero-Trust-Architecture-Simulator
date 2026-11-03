@@ -117,12 +117,9 @@ def init_defaults(db: Session) -> None:
                 username=user_data["username"],
                 email=user_data["email"],
                 full_name=user_data["full_name"],
-                display_name=user_data["full_name"],
                 role=user_data["role"],
                 password_hash=get_password_hash(user_data["password"]),
                 is_active=True,
-                theme="dark",
-                timezone="UTC",
             )
         )
 

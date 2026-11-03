@@ -22,7 +22,7 @@ export interface PolicyConfig {
 }
 
 export interface PolicyDecision {
-  decision: 'allow' | 'deny'
+  decision: 'allow' | 'deny' | 'require_mfa' | 'require_reauthentication' | 'step_up_authentication'
   reason: string
   checks: string[]
   risk_score: number
@@ -31,6 +31,10 @@ export interface PolicyDecision {
   user: string
   resource: string
   action: string
+  request_id?: string
+  applied_policies?: string[]
+  failed_checks?: string[]
+  explanation?: string
 }
 
 export interface DashboardMetrics {

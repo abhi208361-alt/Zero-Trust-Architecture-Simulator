@@ -14,118 +14,56 @@ export function UsersPage() {
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    fetchUsers()
-  }, [])
-
-  async function fetchUsers() {
+  const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('zta_token')
-      const res = await fetch('http://127.0.0.1:8000/api/v1/users', {
+      const token = localStorage.getItem('zta_token') ?? ''
+      const response = await fetch('http://127.0.0.1:8000/api/v1/users', {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) throw new Error('Unable to load users')
-      const data = await res.json()
-      setUsers(data)
-    } catch (e) {
-      setError((e as Error).message)
+      if (!response.ok) throw new Error('Unable to load users')
+      setUsers(await response.json())
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to load users')
     }
   }
 
-  async function toggleStatus(userId: number, isActive: boolean) {
-    try {
-      const token = localStorage.getItem('zta_token')
-      await fetch(`http://127.0.0.1:8000/api/v1/users/${userId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ is_active: !isActive }),
-      })
-      fetchUsers()
-    } catch (e) {
-      setError((e as Error).message)
-    }
+  useEffect(() => {
+    void fetchUsers()
+  }, [])
+
+  const update = async (id: number, patch: Partial<UserRow>) => {
+    const token = localStorage.getItem('zta_token') ?? ''
+    const response = await fetch(`http://127.0.0.1:8000/api/v1/users/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(patch),
+    })
+    if (!response.ok) throw new Error((await response.json()).detail ?? 'User update failed')
+    await fetchUsers()
   }
 
-  async function updateRole(userId: number, role: string) {
-    try {
-      const token = localStorage.getItem('zta_token')
-      await fetch(`http://127.0.0.1:8000/api/v1/users/${userId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ role }),
-      })
-      fetchUsers()
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }
-
-  const filteredUsers = users.filter((user) =>
-    [user.username, user.full_name, user.email].join(' ').toLowerCase().includes(search.toLowerCase())
+  const filtered = users.filter((user) =>
+    [user.username, user.full_name, user.email].join(' ').toLowerCase().includes(search.toLowerCase()),
   )
 
   return (
     <div className="page-stack">
-      <section className="page-header">
-        <div className="eyebrow">Administration</div>
-        <h2>User Management</h2>
-      </section>
-
+      <section className="page-header"><div className="eyebrow">Administration</div><h2>User Management</h2></section>
       {error && <div className="error-box">{error}</div>}
-
-      <div className="panel-box">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search users"
-          className="search-input"
-        />
-      </div>
-
+      <div className="panel-box"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search users" /></div>
       <div className="panel-box">
         <table className="data-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Username</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Action</th>
+          <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>{filtered.map((user) => (
+            <tr key={user.id}>
+              <td>{user.full_name}</td><td>{user.username}</td><td>{user.email}</td>
+              <td><select value={user.role} onChange={(event) => void update(user.id, { role: event.target.value })}>
+                <option value="viewer">viewer</option><option value="analyst">analyst</option><option value="administrator">administrator</option>
+              </select></td>
+              <td>{user.is_active ? 'Active' : 'Disabled'}</td>
+              <td><button className="primary-btn" onClick={() => void update(user.id, { is_active: !user.is_active })}>{user.is_active ? 'Disable' : 'Enable'}</button></td>
             </tr>
-          </thead>
-
-          <tbody>
-            {filteredUsers.map((user) => (
-              <tr key={user.id}>
-                <td>{user.full_name}</td>
-                <td>{user.username}</td>
-                <td>{user.email}</td>
-                <td>
-                  <select
-                    value={user.role}
-                    onChange={(e) => updateRole(user.id, e.target.value)}
-                  >
-                    <option value="viewer">viewer</option>
-                    <option value="analyst">analyst</option>
-                    <option value="administrator">administrator</option>
-                  </select>
-                </td>
-                <td>{user.is_active ? 'Active' : 'Disabled'}</td>
-                <td>
-                  <button className="primary-btn" onClick={() => toggleStatus(user.id, user.is_active)}>
-                    {user.is_active ? 'Disable' : 'Enable'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+          ))}</tbody>
         </table>
       </div>
     </div>

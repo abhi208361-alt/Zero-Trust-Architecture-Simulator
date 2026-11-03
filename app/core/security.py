@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import jwt
 from fastapi import HTTPException, status
@@ -8,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.models.auth import RevokedToken
 from app.models.user import User
 
 settings = get_settings()
@@ -30,13 +32,21 @@ def create_access_token(subject: str) -> str:
         "sub": subject,
         "exp": expires_at,
         "iat": datetime.now(UTC),
+        "jti": uuid4().hex,
+        "token_type": "access",
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def decode_access_token(token: str) -> dict:
     try:
-        return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            options={"require": ["exp", "sub", "iat", "jti"]},
+        )
+        return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
     except jwt.InvalidTokenError as exc:
@@ -54,3 +64,19 @@ def authenticate_user(db: Session, username: str, password: str) -> User | None:
     if not verify_password(password, user.password_hash):
         return None
     return user
+
+
+def revoke_token(db: Session, token: str) -> None:
+    payload = decode_access_token(token)
+    jti = payload["jti"]
+    expires_at = datetime.fromtimestamp(payload["exp"], UTC)
+    if db.scalar(select(RevokedToken).where(RevokedToken.jti == jti)) is None:
+        db.add(RevokedToken(jti=jti, expires_at=expires_at))
+        db.commit()
+
+
+def is_token_revoked(db: Session, jti: str) -> bool:
+    now = datetime.now(UTC)
+    db.query(RevokedToken).filter(RevokedToken.expires_at < now).delete()
+    db.commit()
+    return db.scalar(select(RevokedToken).where(RevokedToken.jti == jti)) is not None

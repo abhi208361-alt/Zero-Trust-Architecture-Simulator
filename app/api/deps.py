@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from app.core.security import decode_access_token, security
+from app.core.security import decode_access_token, is_token_revoked, security
 from app.db.session import get_db
 from app.models.user import User
 from app.core.config import get_settings
@@ -24,8 +24,10 @@ def get_current_user(
         raise
 
     username = payload.get("sub")
-    if username is None:
+    if username is None or payload.get("jti") is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    if is_token_revoked(db, payload["jti"]):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token revoked")
 
     user = db.query(User).filter(User.username == username).first()
     if user is None:
@@ -50,5 +52,7 @@ def get_current_user_optional(
         return None
     username = payload.get("sub")
     if username is None:
+        return None
+    if payload.get("jti") and is_token_revoked(db, payload["jti"]):
         return None
     return db.query(User).filter(User.username == username).first()

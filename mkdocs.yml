@@ -1,0 +1,20 @@
+site_name: Zero Trust Architecture Simulator
+site_description: Local educational simulator for Zero Trust access decisions
+docs_dir: docs
+nav:
+  - Architecture: architecture.md
+  - Data flow: data_flow.md
+  - Threat model: threat_model.md
+  - Local setup: local_setup.md
+  - Implementation plan: AGENT_IMPLEMENTATION_PLAN.md
+  - Progress: AGENT_PROGRESS.md
+  - Decisions: DECISIONS.md
+  - Feature traceability: FEATURE_TRACEABILITY.md
+  - Project status: PROJECT_STATUS.md
+  - Repository audit: REPOSITORY_AUDIT.md
+  - Test strategy: TEST_STRATEGY.md
+  - Deprecation tracker: DEPRECATION_TRACKER.md
+  - Progress report: PROGRESS_REPORT.md
+  - Legacy implementation plan: IMPLEMENTATION_PLAN.md
+theme:
+  name: material
