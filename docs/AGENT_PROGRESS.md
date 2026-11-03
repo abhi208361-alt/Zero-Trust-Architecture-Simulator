@@ -21,7 +21,7 @@
 | 17. Security monitoring | TESTED | Audit filtering, pagination, dashboard recent events, and security tests are available | No streaming event bus |
 | 18. Audit logs | TESTED | Audit persistence, filters, pagination, correlation IDs, and role protection covered | Legacy schema fields are not exposed |
 | 19. Reports/exports | TESTED | CSV/PDF downloads are wired and container smoke-tested | Hosted CI artifact verification pending |
-| 20. Settings/documentation | TESTED | Profile settings save through API; documentation loads from API | Additional documentation slugs can be added as content |
+| 20. Settings/documentation | TESTED | Profile/settings routes save through API; documentation loads from API; notifications are derived from persisted audit events with read-state persistence | Additional documentation slugs can be added as content |
 | 21. Security assistant | TESTED | Local assistant endpoint and UI send/receive flow implemented | No paid/external AI provider by design |
 | 22. Integration/deployment verification | VERIFIED | 30 backend tests, migration checks, frontend build/type check, Python compile, docs, Bandit, Docker build/runtime health, API checks, and hosted CI run `41691584250` pass | Compose runtime command unavailable in this environment |
 

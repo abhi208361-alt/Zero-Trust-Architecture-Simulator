@@ -22,6 +22,7 @@ environment, and distributed rate limiting/session listing are not implemented.
 | Audit persistence/filtering | PASS | Audit records persisted; legacy audit schema migrated without data loss; CSV contained persisted rows |
 | CSV/PDF reports | PASS | Live exports returned 200; CSV contained headers/records and PDF identified as PDF 1.4 |
 | User/profile/settings | PASS | Profile/password update and session invalidation covered by regression tests; password changes return the user to login and theme selection applies globally |
+| Notifications | PASS | Notifications are derived from persisted audit events, filtered by user permissions, and support persisted read/all-read state |
 | Documentation/assistant | PASS | API and frontend integration tests passed |
 | Rate limiting | PASS | Login, registration, and administrator endpoint tests return HTTP 429 with `Retry-After` |
 | Database migrations | PASS | Alembic upgrade/rollback and legacy user/audit record preservation tests passed |
