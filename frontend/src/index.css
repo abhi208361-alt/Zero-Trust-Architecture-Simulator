@@ -15,6 +15,17 @@
   --shadow: rgba(2, 12, 19, 0.68);
 }
 
+[data-theme='light'] {
+  --bg-deep: #eef4fb;
+  --bg-mid: #f7fbff;
+  --panel: rgba(255, 255, 255, 0.96);
+  --panel-strong: #ffffff;
+  --border: rgba(39, 78, 123, 0.2);
+  --text: #10233a;
+  --muted: #58708d;
+  --shadow: rgba(36, 73, 110, 0.16);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -25,7 +36,7 @@ html, body, #root {
   width: 100%;
   background:
     radial-gradient(circle at top left, rgba(51, 120, 255, 0.18), transparent 28%),
-    linear-gradient(180deg, #03131d 0%, #091d2d 100%);
+    linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-mid) 100%);
   color: var(--text);
   font-family: Inter, 'Segoe UI', sans-serif;
 }
@@ -48,7 +59,7 @@ a {
 }
 
 input, select {
-  background: rgba(8, 17, 28, 0.9);
+  background: var(--panel-strong);
   border: 1px solid rgba(118, 160, 215, 0.22);
   border-radius: 8px;
   color: var(--text);

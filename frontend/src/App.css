@@ -12,7 +12,7 @@
 
 .sidebar {
   width: 272px;
-  background: rgba(9, 21, 33, 0.9);
+  background: var(--panel-strong);
   border: 1px solid rgba(133, 160, 196, 0.2);
   border-radius: 18px;
   padding: 14px 12px;
@@ -185,7 +185,7 @@ h1 {
 }
 
 .panel {
-  background: rgba(12, 23, 38, 0.92);
+  background: var(--panel);
   border: 1px solid rgba(134, 162, 197, 0.22);
   border-radius: 14px;
   padding: 12px;
@@ -202,7 +202,7 @@ h1 {
 }
 
 .page-card {
-  background: rgba(12, 23, 38, 0.92);
+  background: var(--panel);
   border: 1px solid rgba(134, 162, 197, 0.22);
   border-radius: 14px;
   padding: 16px;

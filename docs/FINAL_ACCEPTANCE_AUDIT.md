@@ -2,27 +2,26 @@
 
 ## Overall result
 
-**CONDITIONALLY ACCEPTED FOR LOCAL/CONTAINERIZED DEMONSTRATION.** The application was independently exercised after commit `582af59`. Two release-blocking defects were found and fixed: public registration used an invalid ORM field and legacy committed databases caused dashboard/audit queries to fail. Rate limiting and Alembic migrations were subsequently added and regression-tested.
+**CONDITIONALLY ACCEPTED FOR LOCAL/CONTAINERIZED DEMONSTRATION.** The application was independently exercised through the release branch. Two release-blocking defects were found and fixed: public registration used an invalid ORM field and legacy committed databases caused dashboard/audit queries to fail. Rate limiting and Alembic migrations were subsequently added and regression-tested.
 
-Production readiness is not declared because commit `9398330` is not present on
-the configured `origin/main`, hosted GitHub Actions have no run for this commit,
-Docker Compose is not installed in this environment, and distributed rate
-limiting/session listing are not implemented.
+Production readiness is not declared because the release branch is not merged
+to the configured `origin/main`, Docker Compose is not installed in this
+environment, and distributed rate limiting/session listing are not implemented.
 
 ## Feature verification
 
 | Area | Result | Evidence |
 |---|---|---|
-| Frontend routes and navigation | PASS | Browser loaded dashboard, access simulator, users, policies, audit logs, reports, risk analysis, security testing, assistant, documentation, and settings with zero console errors |
+| Frontend routes and navigation | PASS | Browser-loaded routes and current Vite build cover dashboard, access simulator, users, policies, audit logs, reports, risk analysis, security testing, assistant, documentation, and settings |
 | Registration and login | PASS | Browser registration redirected to login; live registration and login returned 200 |
 | Logout and token revocation | PASS | Backend regression coverage and protected-route behavior verified |
 | RBAC and administrator protection | PASS | Viewer access to `/users` and report exports returned 403; administrator endpoints returned 200 |
 | ABAC/policy evaluation | PASS | Backend policy tests cover identity, device, MFA, resource sensitivity, risk, and default-deny outcomes |
 | Policy CRUD and access simulation | PASS | Integration tests cover policy configuration/rules and `/resources/access` |
-| Risk analysis and monitoring | PASS | Dynamic risk and audit summary/filter endpoints covered by tests and live dashboard |
+| Risk analysis and monitoring | PASS | Dynamic risk and audit summary/filter endpoints covered by tests and the live dashboard; empty/error states are explicit |
 | Audit persistence/filtering | PASS | Audit records persisted; legacy audit schema migrated without data loss; CSV contained persisted rows |
 | CSV/PDF reports | PASS | Live exports returned 200; CSV contained headers/records and PDF identified as PDF 1.4 |
-| User/profile/settings | PASS | Profile/password update and session invalidation covered by regression tests |
+| User/profile/settings | PASS | Profile/password update and session invalidation covered by regression tests; password changes return the user to login and theme selection applies globally |
 | Documentation/assistant | PASS | API and frontend integration tests passed |
 | Rate limiting | PASS | Login, registration, and administrator endpoint tests return HTTP 429 with `Retry-After` |
 | Database migrations | PASS | Alembic upgrade/rollback and legacy user/audit record preservation tests passed |
@@ -102,7 +101,7 @@ Not implemented or limited:
 - Legacy SQLite migration: **passed**; existing user and audit records were preserved and converted to the current schema.
 - Rate limiting: **passed**; login, registration, and administrator limits returned HTTP 429 with `Retry-After`. Two independent application processes each accepted their first request and independently limited their second request, confirming the documented process-local limitation.
 - JWT startup validation: **passed**; missing secrets, short secrets, placeholders, and low-diversity secrets were rejected.
-- GitHub Actions: workflow file was inspected and includes backend tests, migration validation, Bandit, pip-audit, frontend type/build checks, and Docker build. `gh run list --workflow ci.yml --commit 9398330` returned no runs; hosted execution is **NOT RUN**. The configured `origin/main` remains at `b5094da`.
+- GitHub Actions: hosted run `41691584250` passed backend tests/migrations, Bandit, pip-audit, lint/docs, frontend checks, and Docker build for the release branch. The configured `origin/main` remains at `b5094da`; PR #2 remains intentionally unmerged.
 - `pdftotext` content extraction: **NOT RUN** because the utility is not installed; MIME/file validation and API response checks passed.
 
 ## Defects

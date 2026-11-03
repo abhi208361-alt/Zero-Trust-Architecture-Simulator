@@ -32,9 +32,6 @@ type AuthResponse = {
 
 const API = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api/v1'
 
-const STORAGE_TOKEN = 'zta_token'
-const STORAGE_USER = 'zta_user'
-
 const navItems = [
   { label: 'Overview Dashboard', path: '/dashboard' },
   { label: 'Access Simulator', path: '/access-simulator' },
@@ -45,47 +42,20 @@ const navItems = [
   { label: 'Reports', path: '/reports' },
   { label: 'Risk Analysis', path: '/risk-analysis' },
   { label: 'Security Testing', path: '/security-testing' },
-  { label: 'Security Investigations', path: '/investigations' },
   { label: 'AI Assistant', path: '/assistant' },
   { label: 'Documentation', path: '/documentation' },
   { label: 'Settings', path: '/settings' },
 ]
 
 function getStoredToken() {
-  return localStorage.getItem(STORAGE_TOKEN) ?? ''
-}
-
-function getStoredUser() {
-  const raw = localStorage.getItem(STORAGE_USER)
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as User
-  } catch {
-    return null
-  }
+  return ''
 }
 
 function App() {
-  const [token, setToken] = useState<string>(() => getStoredToken())
-  const [currentUser, setCurrentUser] = useState<User | null>(() => getStoredUser())
+  const [token, setToken] = useState<string>('')
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [loadingUser, setLoadingUser] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
-
-  useEffect(() => {
-    if (token) {
-      localStorage.setItem(STORAGE_TOKEN, token)
-    } else {
-      localStorage.removeItem(STORAGE_TOKEN)
-    }
-  }, [token])
-
-  useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem(STORAGE_USER, JSON.stringify(currentUser))
-    } else {
-      localStorage.removeItem(STORAGE_USER)
-    }
-  }, [currentUser])
 
   useEffect(() => {
     if (!token) return
@@ -153,7 +123,6 @@ function App() {
           <Route path="reports" element={<ReportsPage token={token} currentUser={currentUser} />} />
           <Route path="risk-analysis" element={<RiskAnalysisPage token={token} currentUser={currentUser} />} />
           <Route path="security-testing" element={<SecurityTestingPage token={token} currentUser={currentUser} />} />
-          <Route path="investigations" element={<InvestigationsPage token={token} currentUser={currentUser} />} />
           <Route path="assistant" element={<AssistantPage token={token} currentUser={currentUser} />} />
           <Route path="documentation" element={<DocumentationPage token={token} currentUser={currentUser} />} />
           <Route path="settings" element={<SettingsPage token={token} currentUser={currentUser} />} />
@@ -231,10 +200,10 @@ function ProtectedLayout({
             <h1>{routeTitle(location.pathname)}</h1>
           </div>
           <div className="top-actions">
-            <button type="button" className="ghost-button">
+            <button type="button" className="ghost-button" onClick={() => window.location.reload()}>
               Refresh
             </button>
-            <button type="button" className="primary-button">
+            <button type="button" className="primary-button" onClick={() => navigate('/reports')}>
               Export
             </button>
           </div>
@@ -257,7 +226,6 @@ function routeTitle(path: string) {
     '/reports': 'Reports',
     '/risk-analysis': 'Risk Analysis',
     '/security-testing': 'Security Testing',
-    '/investigations': 'Security Investigations',
     '/assistant': 'AI Assistant',
     '/documentation': 'Documentation',
     '/settings': 'Settings',
@@ -554,6 +522,14 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
     load()
   }, [token])
 
+  if (loading) {
+    return <div className="page-card">Loading dashboard data...</div>
+  }
+
+  if (error) {
+    return <div className="page-card"><div className="error-banner">{error}</div></div>
+  }
+
   return (
     <div className="content-grid">
       <div className="panel">
@@ -601,21 +577,24 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
 
         <div className="risk-balance">
           <div className="risk-circle">
-            <strong>{metrics?.denied_requests ?? 72}</strong>
-            <small>Risk</small>
+            <strong>{metrics ? metrics.denied_requests : '—'}</strong>
+            <small>Denied</small>
           </div>
           <div className="risk-circle alt">
-            <strong>{metrics?.allowed_requests ?? 128}</strong>
-            <small>Safe</small>
+            <strong>{metrics ? metrics.allowed_requests : '—'}</strong>
+            <small>Allowed</small>
           </div>
         </div>
 
         <div className="bars-group">
-          <span style={{ height: '56%' }} />
-          <span style={{ height: '72%' }} />
-          <span style={{ height: '88%' }} />
-          <span style={{ height: '48%' }} />
-          <span style={{ height: '68%' }} />
+          {[metrics?.allowed_requests ?? 0, metrics?.denied_requests ?? 0].map((value, index) => (
+            <span
+              key={index}
+              style={{
+                height: `${metrics?.total_access_requests ? Math.max(8, (value / metrics.total_access_requests) * 100) : 8}%`,
+              }}
+            />
+          ))}
         </div>
       </div>
 
@@ -626,55 +605,12 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
             Run
           </button>
         </div>
-        <ul className="stack-list">
-          <li className="stack-row">
-            <span>Auth bypass</span>
-            <span className="status warn">Queued</span>
-          </li>
-          <li className="stack-row">
-            <span>Privilege escalation</span>
-            <span className="status warn">Queued</span>
-          </li>
-          <li className="stack-row">
-            <span>Token replay</span>
-            <span className="status warn">Queued</span>
-          </li>
-          <li className="stack-row">
-            <span>Shadow access</span>
-            <span className="status warn">Queued</span>
-          </li>
-        </ul>
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>Investigations</span>
-          <button className="tiny-button" type="button" onClick={() => navigate('/investigations')}>
-            Open
+        <div className="empty-box">
+          <p>Security checks run on demand against the local application.</p>
+          <button className="primary-button small" type="button" onClick={() => navigate('/security-testing')}>
+            Run checks
           </button>
         </div>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Unusual access pattern</td>
-              <td><span className="status warn">Open</span></td>
-            </tr>
-            <tr>
-              <td>Privilege drift</td>
-              <td><span className="status danger">High</span></td>
-            </tr>
-            <tr>
-              <td>Token reuse</td>
-              <td><span className="status success">Closed</span></td>
-            </tr>
-          </tbody>
-        </table>
       </div>
 
       <div className="panel">
@@ -717,82 +653,11 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
           </button>
         </div>
 
-        <form className="mini-form" onSubmit={(e) => e.preventDefault()}>
-          <label>
-            Risk threshold
-            <input type="number" defaultValue={70} />
-          </label>
-          <label className="checkbox-line">
-            <input type="checkbox" defaultChecked />
-            Trusted device required
-          </label>
-          <label className="checkbox-line">
-            <input type="checkbox" />
-            MFA required
-          </label>
-        </form>
-      </div>
-
-      <div className="panel login-panel">
-        <div className="panel-header">
-          <span>{token ? 'Session Status' : 'Login Page'}</span>
-          {!token && <button className="tiny-button" type="button">Secure</button>}
-        </div>
-        {!token ? (
-          <form className="mini-form" onSubmit={(e) => e.preventDefault()}>
-            <input placeholder="Username" />
-            <input type="password" placeholder="Password" />
-            <button type="submit" className="primary-button small">Sign In</button>
-          </form>
-        ) : (
-          <div className="session-box">
-            <div className="session-name">{currentUser?.username}</div>
-            <div className="session-role">{currentUser?.role}</div>
-            <div className="session-copy">Authenticated and monitoring active policy decisions.</div>
-          </div>
-        )}
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>Registration Page</span>
-          <button className="tiny-button" type="button">
-            Create
-          </button>
-        </div>
-        <form className="mini-form">
-          <input placeholder="Full Name" />
-          <input placeholder="Email Address" />
-          <input type="password" placeholder="Password" />
-          <button className="primary-button small" type="button">Register</button>
-        </form>
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>Access Denied Page</span>
-          <button className="tiny-button" type="button">
-            Secure
-          </button>
-        </div>
-        <div className="error-box">
-          <div className="alert-icon">!</div>
-          <h3>Access Denied</h3>
-          <p>You do not have permission to access this resource.</p>
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>Not Found Page</span>
-          <button className="tiny-button" type="button">
-            Back
-          </button>
-        </div>
         <div className="empty-box">
-          <div className="alert-icon">404</div>
-          <h3>Page Not Found</h3>
-          <p>The page you requested does not exist or was removed.</p>
+          <p>Use Policy Management to update persisted policy configuration.</p>
+          <button className="primary-button small" type="button" onClick={() => navigate('/policies')}>
+            Open policy settings
+          </button>
         </div>
       </div>
     </div>
@@ -908,6 +773,7 @@ function UsersPage({ token, currentUser }: { token: string; currentUser: User | 
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
     const load = async () => {
@@ -936,10 +802,10 @@ function UsersPage({ token, currentUser }: { token: string; currentUser: User | 
           <option>analyst</option>
           <option>administrator</option>
         </select>
-        <select>
-          <option>All statuses</option>
-          <option>Active</option>
-          <option>Inactive</option>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="all">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
         </select>
       </div>
 
@@ -958,6 +824,7 @@ function UsersPage({ token, currentUser }: { token: string; currentUser: User | 
           <tbody>
             {users.filter((user) => (
               (roleFilter === 'all' || user.role === roleFilter) &&
+              (statusFilter === 'all' || (statusFilter === 'active' ? user.is_active : !user.is_active)) &&
               user.username.toLowerCase().includes(search.toLowerCase())
             )).map((user) => (
               <tr key={user.id}>
@@ -969,16 +836,41 @@ function UsersPage({ token, currentUser }: { token: string; currentUser: User | 
                   </span>
                 </td>
                 <td>
-                  <button className="tiny-button" type="button" onClick={async () => {
-                    const nextRole = user.role === 'viewer' ? 'analyst' : user.role === 'analyst' ? 'administrator' : 'viewer'
+                  <select
+                    value={user.role}
+                    disabled={currentUser?.role !== 'administrator'}
+                    onChange={async (event) => {
+                    const nextRole = event.target.value
                     try {
                       await apiFetch(`/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ role: nextRole }) }, token)
                       setUsers((current) => current.map((item) => item.id === user.id ? { ...item, role: nextRole } : item))
                     } catch (e) {
                       setError((e as Error).message)
                     }
-                  }}>
-                    Cycle role
+                    }}
+                  >
+                    <option value="viewer">viewer</option>
+                    <option value="analyst">analyst</option>
+                    <option value="administrator">administrator</option>
+                  </select>
+                  <button
+                    className="tiny-button"
+                    type="button"
+                    disabled={currentUser?.role !== 'administrator'}
+                    onClick={async () => {
+                    try {
+                      await apiFetch(
+                        `/users/${user.id}`,
+                        { method: 'PATCH', body: JSON.stringify({ is_active: !user.is_active }) },
+                        token,
+                      )
+                      setUsers((current) => current.map((item) => item.id === user.id ? { ...item, is_active: !item.is_active } : item))
+                    } catch (e) {
+                      setError((e as Error).message)
+                    }
+                    }}
+                  >
+                    {user.is_active ? 'Disable' : 'Enable'}
                   </button>
                 </td>
               </tr>
@@ -990,7 +882,7 @@ function UsersPage({ token, currentUser }: { token: string; currentUser: User | 
   )
 }
 
-function PoliciesPage({ token }: { token: string }) {
+function PoliciesPage({ token, currentUser }: { token: string; currentUser: User | null }) {
   const [config, setConfig] = useState<PolicyConfig>({
     risk_threshold: 70,
     require_trusted_device_for_high_sensitivity: true,
@@ -999,6 +891,9 @@ function PoliciesPage({ token }: { token: string }) {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [rules, setRules] = useState<any[]>([])
+  const [newRuleName, setNewRuleName] = useState('')
+  const [newRuleEffect, setNewRuleEffect] = useState('deny')
 
   useEffect(() => {
     const load = async () => {
@@ -1015,6 +910,12 @@ function PoliciesPage({ token }: { token: string }) {
     load()
   }, [token])
 
+  useEffect(() => {
+    void apiFetch('/policy/rules', { method: 'GET' }, token)
+      .then(setRules)
+      .catch((e) => setError((e as Error).message))
+  }, [token])
+
   const save = async () => {
     try {
       setLoading(true)
@@ -1026,6 +927,41 @@ function PoliciesPage({ token }: { token: string }) {
       setError((e as Error).message)
     } finally {
       setLoading(false)
+    }
+
+    const createRule = async () => {
+      if (!newRuleName.trim()) {
+        setError('Policy name is required.')
+        return
+      }
+      try {
+        const rule = await apiFetch('/policy/rules', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: newRuleName.trim(),
+            effect: newRuleEffect,
+            priority: 100,
+            resources: [],
+            actions: [],
+            conditions: [],
+            identities: [],
+            enabled: true,
+          }),
+        }, token)
+        setRules((current) => [...current, rule])
+        setNewRuleName('')
+      } catch (e) {
+        setError((e as Error).message)
+      }
+    }
+
+    const deleteRule = async (id: number) => {
+      try {
+        await apiFetch(`/policy/rules/${id}`, { method: 'DELETE' }, token)
+        setRules((current) => current.filter((rule) => rule.id !== id))
+      } catch (e) {
+        setError((e as Error).message)
+      }
     }
   }
 
@@ -1079,6 +1015,36 @@ function PoliciesPage({ token }: { token: string }) {
       </div>
 
       {error && <div className="error-banner">{error}</div>}
+
+      <div className="panel-header">
+        <span>Policy rules</span>
+      </div>
+      <div className="toolbar">
+        <input value={newRuleName} onChange={(e) => setNewRuleName(e.target.value)} placeholder="New policy name" />
+        <select value={newRuleEffect} onChange={(e) => setNewRuleEffect(e.target.value)}>
+          <option value="deny">Deny</option>
+          <option value="allow">Allow</option>
+        </select>
+        <button className="primary-button" type="button" onClick={() => void createRule()} disabled={currentUser?.role !== 'administrator'}>
+          Create rule
+        </button>
+      </div>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead><tr><th>Name</th><th>Effect</th><th>Priority</th><th>Status</th><th /></tr></thead>
+          <tbody>
+            {rules.map((rule) => (
+              <tr key={rule.id}>
+                <td>{rule.name}</td>
+                <td>{rule.effect}</td>
+                <td>{rule.priority}</td>
+                <td>{rule.enabled ? 'Enabled' : 'Disabled'}</td>
+                <td><button className="tiny-button" type="button" onClick={() => void deleteRule(rule.id)}>Delete</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -1087,12 +1053,17 @@ function AuditLogsPage({ token }: { token: string }) {
   const [logs, setLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [decision, setDecision] = useState('')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true)
-        const result = await apiFetch('/audit/logs', { method: 'GET' }, token)
+        const query = new URLSearchParams()
+        if (decision) query.set('decision', decision)
+        if (search.trim()) query.set('search', search.trim())
+        const result = await apiFetch(`/audit/logs${query.toString() ? `?${query}` : ''}`, { method: 'GET' }, token)
         setLogs(result)
       } catch (e) {
         setError((e as Error).message)
@@ -1101,19 +1072,19 @@ function AuditLogsPage({ token }: { token: string }) {
       }
     }
     load()
-  }, [token])
+  }, [token, decision, search])
 
   return (
     <div className="page-card">
       <h2>Audit Logs</h2>
 
       <div className="toolbar">
-        <select>
-          <option>Last 2 hours</option>
-          <option>Last 24 hours</option>
-          <option>Last 7 days</option>
+        <select value={decision} onChange={(event) => setDecision(event.target.value)}>
+          <option value="">All decisions</option>
+          <option value="allow">Allowed</option>
+          <option value="deny">Denied</option>
         </select>
-        <input placeholder="Search logs" />
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search logs" />
       </div>
 
       <div className="table-wrap">
@@ -1246,14 +1217,15 @@ function ReportsPage({ token }: { token: string }) {
 
 function RiskAnalysisPage({ token }: { token: string }) {
   const [data, setData] = useState<any>(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const load = async () => {
       try {
         const result = await apiFetch('/risk-analysis', { method: 'GET' }, token)
         setData(result)
-      } catch {
-        // ignore
+      } catch (e) {
+        setError((e as Error).message)
       }
     }
     load()
@@ -1266,34 +1238,39 @@ function RiskAnalysisPage({ token }: { token: string }) {
       <div className="stats-grid">
         <div>
           <span>Total Risk</span>
-          <strong>{data?.overall_risk_score ?? 72}</strong>
+          <strong>{data?.overall_risk_score ?? '—'}</strong>
         </div>
         <div>
           <span>Critical</span>
-          <strong>{data?.critical_count ?? 8}</strong>
+          <strong>{data?.critical_count ?? '—'}</strong>
         </div>
         <div>
           <span>High</span>
-          <strong>{data?.high_count ?? 12}</strong>
+          <strong>{data?.high_count ?? '—'}</strong>
         </div>
         <div>
           <span>Low</span>
-          <strong>{data?.low_count ?? 24}</strong>
+          <strong>{data?.low_count ?? '—'}</strong>
         </div>
       </div>
+      {error && <div className="error-banner">{error}</div>}
+      {data && <p className="muted-copy">Calculated from the latest {data.sample_size} persisted audit decisions.</p>}
     </div>
   )
 }
 
 function SecurityTestingPage({ token }: { token: string }) {
   const [tests, setTests] = useState<any[]>([])
+  const [error, setError] = useState('')
+  const [executedAt, setExecutedAt] = useState('')
   useEffect(() => {
     const load = async () => {
       try {
         const result = await apiFetch('/security-tests/run', { method: 'GET' }, token)
         setTests(result.results ?? [])
-      } catch {
-        // ignore
+        setExecutedAt(result.executed_at ?? '')
+      } catch (e) {
+        setError((e as Error).message)
       }
     }
     load()
@@ -1302,6 +1279,8 @@ function SecurityTestingPage({ token }: { token: string }) {
   return (
     <div className="page-card">
       <h2>Security Testing</h2>
+      {error && <div className="error-banner">{error}</div>}
+      {executedAt && <p className="muted-copy">Executed {new Date(executedAt).toLocaleString()}</p>}
 
       <table className="data-table">
         <thead>
@@ -1316,42 +1295,11 @@ function SecurityTestingPage({ token }: { token: string }) {
           {tests.map((test) => (
             <tr key={test.name}>
               <td>{test.name}</td>
-              <td>
-                <span className={test.status === 'pass' ? 'status success' : 'status danger'}>
-                  {test.status ?? 'unknown'}
-                </span>
-              </td>
+              <td><span className={test.passed ? 'status success' : 'status danger'}>{test.passed ? 'pass' : 'fail'}</span></td>
               <td>{test.actual}</td>
               <td>{test.expected}</td>
             </tr>
           ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function InvestigationsPage({ token }: { token: string }) {
-  return (
-    <div className="page-card">
-      <h2>Security Investigations</h2>
-
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Severity</th>
-            <th>Owner</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Sample investigation</td>
-            <td>High</td>
-            <td>Admin</td>
-            <td><span className="status danger">Open</span></td>
-          </tr>
         </tbody>
       </table>
     </div>
@@ -1449,6 +1397,16 @@ function SettingsPage({ token }: { token: string }) {
   })
   const [status, setStatus] = useState('')
   useEffect(() => {
+    const storedTheme = localStorage.getItem('zt-theme') ?? 'dark'
+    setForm((current) => ({ ...current, theme: storedTheme }))
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = form.theme
+    localStorage.setItem('zt-theme', form.theme)
+  }, [form.theme])
+
+  useEffect(() => {
     void apiFetch('/auth/me', { method: 'GET' }, token).then((user) => setForm((current) => ({
       ...current,
       full_name: user.full_name,
@@ -1466,6 +1424,10 @@ function SettingsPage({ token }: { token: string }) {
         email: form.email,
         ...(form.password ? { password: form.password } : {}),
       }) }, token)
+      if (form.password) {
+        window.location.assign('/login')
+        return
+      }
       setStatus('Settings saved.')
     } catch (e) {
       setStatus((e as Error).message)

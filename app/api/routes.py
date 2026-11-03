@@ -4,11 +4,13 @@ from io import BytesIO
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.responses import Response, StreamingResponse
-from sqlalchemy import select
+from pydantic import ValidationError
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.core.rate_limit import enforce_admin_rate_limit, enforce_auth_rate_limit
+from app.core.config import get_settings
+from app.core.rate_limit import enforce_admin_rate_limit, enforce_auth_rate_limit, rate_limiter
 from app.core.security import authenticate_user, create_access_token, get_password_hash, revoke_token, security
 from app.db.session import get_db
 from app.models.audit import AuditLog
@@ -323,6 +325,11 @@ def get_audit_logs(
     page: int = 1,
     page_size: int = 100,
     decision: str | None = None,
+    search: str | None = None,
+    actor: str | None = None,
+    resource: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -333,6 +340,30 @@ def get_audit_logs(
     query = db.query(AuditLog)
     if decision in {"allow", "deny"}:
         query = query.filter(AuditLog.decision == decision)
+    if search:
+        pattern = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                AuditLog.user.ilike(pattern),
+                AuditLog.resource.ilike(pattern),
+                AuditLog.action.ilike(pattern),
+                AuditLog.reason.ilike(pattern),
+            )
+        )
+    if actor:
+        query = query.filter(AuditLog.user == actor)
+    if resource:
+        query = query.filter(AuditLog.resource == resource)
+    if start_date:
+        try:
+            query = query.filter(AuditLog.timestamp >= datetime.fromisoformat(start_date))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="start_date must be ISO-8601") from exc
+    if end_date:
+        try:
+            query = query.filter(AuditLog.timestamp <= datetime.fromisoformat(end_date))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="end_date must be ISO-8601") from exc
     logs = query.order_by(AuditLog.timestamp.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return [
         {
@@ -389,27 +420,146 @@ def dashboard_metrics(db: Session = Depends(get_db), current_user: User = Depend
 def security_tests(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != UserRole.ADMINISTRATOR:
         raise HTTPException(status_code=403, detail="Forbidden")
-    results = [
-        {
-            "name": "token_validity",
-            "status": "pass",
-            "actual": "valid token",
-            "expected": "valid token",
-        },
-        {
-            "name": "rbac_enforcement",
-            "status": "pass",
-            "actual": "role authorization enforced",
-            "expected": "role authorization enforced",
-        },
-        {
-            "name": "risk_threshold",
-            "status": "pass",
-            "actual": "risk <= threshold",
-            "expected": "risk <= threshold",
-        },
-    ]
-    return {"results": results}
+    results: list[dict] = []
+
+    def add_result(
+        name: str,
+        expected: str,
+        actual: str,
+        passed: bool,
+        reason: str,
+        checks: list[str],
+    ) -> None:
+        results.append(
+            {
+                "name": name,
+                "status": "pass" if passed else "fail",
+                "passed": passed,
+                "expected": expected,
+                "actual": actual,
+                "reason": reason,
+                "checks": checks,
+            }
+        )
+
+    add_result(
+        "token_validity",
+        "active authenticated administrator",
+        "active authenticated administrator" if current_user.is_active else "inactive administrator",
+        current_user.is_active,
+        "The endpoint was reached through the JWT and active-user dependencies.",
+        ["JWT signature and expiration were validated by the request dependencies."],
+    )
+
+    viewer = db.scalar(select(User).where(User.role == UserRole.VIEWER, User.is_active.is_(True)))
+    viewer_denied = viewer is None or not (
+        "resource:admin-manage" in ROLE_PERMISSIONS.get(viewer.role, set())
+    )
+    admin_allowed = "resource:admin-manage" in ROLE_PERMISSIONS.get(UserRole.ADMINISTRATOR, set())
+    add_result(
+        "rbac_enforcement",
+        "viewer denied admin management and administrator allowed",
+        f"viewer_denied={viewer_denied}, administrator_allowed={admin_allowed}",
+        viewer_denied and admin_allowed,
+        "Role permission mappings were evaluated directly.",
+        ["resource:admin-manage is absent from viewer permissions.", "administrator permissions include resource:admin-manage."],
+    )
+
+    unknown_request = PolicyEvaluationRequest(
+        username=current_user.username,
+        resource="resources/unknown-security-test",
+        action="read",
+        simulated_device_trusted=True,
+        simulated_mfa_passed=True,
+        simulated_risk_score=0,
+    )
+    default_deny = evaluate_request(db, current_user, unknown_request, True)
+    add_result(
+        "default_deny",
+        "unknown resources are denied",
+        default_deny.decision,
+        default_deny.decision == "deny",
+        default_deny.reason,
+        default_deny.failed_checks,
+    )
+
+    high_risk_request = PolicyEvaluationRequest(
+        username=current_user.username,
+        resource="resources/admin",
+        action="manage",
+        simulated_device_trusted=True,
+        simulated_mfa_passed=True,
+        simulated_risk_score=100,
+    )
+    high_risk_decision = evaluate_request(db, current_user, high_risk_request, True)
+    policy_config = db.query(PolicyConfig).first()
+    risk_threshold = policy_config.risk_threshold if policy_config else 70
+    add_result(
+        "risk_threshold",
+        f"risk scores above {risk_threshold} are denied",
+        high_risk_decision.decision,
+        high_risk_decision.decision == "deny",
+        high_risk_decision.reason,
+        high_risk_decision.failed_checks,
+    )
+
+    rate_key = f"security-test-{current_user.id}-{datetime.now(timezone.utc).timestamp()}"
+    rate_limiter.check(rate_key, "security-test", 1, 60)
+    rate_limited = False
+    try:
+        rate_limiter.check(rate_key, "security-test", 1, 60)
+    except HTTPException as exc:
+        rate_limited = exc.status_code == 429 and "Retry-After" in (exc.headers or {})
+    add_result(
+        "rate_limiting",
+        "second request returns HTTP 429 with Retry-After",
+        "HTTP 429 with Retry-After" if rate_limited else "rate limit not enforced",
+        rate_limited,
+        "The in-process limiter was exercised with an isolated test key.",
+        ["Configured authentication and administrator limits are process-local."],
+    )
+
+    try:
+        PolicyEvaluationRequest(
+            username=current_user.username,
+            resource="resources/public",
+            action="read",
+            simulated_risk_score=101,
+        )
+    except ValidationError:
+        validation_passed = True
+    else:
+        validation_passed = False
+    add_result(
+        "input_validation",
+        "risk score outside 0-100 is rejected",
+        "Pydantic rejected 101" if validation_passed else "invalid score accepted",
+        validation_passed,
+        "PolicyEvaluationRequest constrains simulated_risk_score to 0 through 100.",
+        ["Request schema validation is active."],
+    )
+
+    log_before = db.query(AuditLog).count()
+    log_decision(
+        db,
+        current_user.username,
+        "security-tests",
+        "run",
+        "allow",
+        "Authorized security tests executed",
+        0,
+    )
+    log_after = db.query(AuditLog).count()
+    add_result(
+        "audit_event_generation",
+        "security test execution creates an audit event",
+        f"audit_count {log_before} -> {log_after}",
+        log_after == log_before + 1,
+        "The security-test execution was persisted to the audit log.",
+        ["Audit records are database-backed and append-only through the service layer."],
+    )
+
+    return {"executed_at": datetime.now(timezone.utc), "results": results}
 
 
 @router.get("/reports/csv", dependencies=[Depends(enforce_admin_rate_limit)])
