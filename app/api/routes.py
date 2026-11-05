@@ -1,5 +1,4 @@
 import json
-from datetime import datetime, timezone
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -59,7 +58,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     return {
         "access_token": token,
         "token_type": "bearer",  # nosec B105
-        "expires_at": datetime.now(timezone.utc),
+        "expires_at": None,
     }
 
 

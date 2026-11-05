@@ -11,8 +11,8 @@ This threat model identifies potential security risks, attack vectors, and mitig
 | Threat | Likelihood | Impact | Mitigation |
 |--------|-----------|--------|------------|
 | Credential stuffing | Medium | Medium | Rate limiting on login endpoint, account lockout after repeated failures, monitor failed authentication attempts |
-| JWT token interception | Low | High | HTTPS/TLS for all communications, short token lifespan (15 minutes), token revocation list |
-| Token replay attacks | Low | Medium | Token jti (JWT ID) uniqueness enforcement, token expiration validation, single-session enforcement |
+| JWT token interception | Low | High | HTTPS/TLS for all communications, JTI-based token revocation, account/session-version checks |
+| Token replay attacks | Low | Medium | Token jti (JWT ID) uniqueness enforcement, token revocation validation, session-version enforcement |
 | Password guessing | Medium | Medium | Argon2 password hashing (already implemented), rate limiting, no password display in logs |
 
 ### 2. Authorization Layer Threats
@@ -44,7 +44,7 @@ This threat model identifies potential security risks, attack vectors, and mitig
 | Risk ID | Category | Description | Likelihood | Impact | Risk Level | Mitigation Status |
 |---------|----------|-------------|-----------|--------|-----------|-------------------|
 | T1 | Auth | Credential stuffing attack | Medium | Medium | Medium | Rate limiting implemented, lockout considered |
-| T2 | Auth | JWT interception | Low | High | Medium | HTTPS enforced, short token lifespan |
+| T2 | Auth | JWT interception | Low | High | Medium | HTTPS enforced, JTI revocation and session-version enforcement |
 | T3 | Auth | Password guessing | Medium | Medium | Medium | Argon2 hashing, rate limiting |
 | T4 | Authz | Privilege escalation | Low | High | High | Deny-by-default, RBAC on every op |
 | T5 | Authz | Role bypass | Low | High | High | Server-side verification only |

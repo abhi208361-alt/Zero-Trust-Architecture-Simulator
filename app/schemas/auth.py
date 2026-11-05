@@ -8,7 +8,7 @@ from app.models.user import UserRole
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    expires_at: datetime
+    expires_at: datetime | None = None
 
 
 class LoginRequest(BaseModel):

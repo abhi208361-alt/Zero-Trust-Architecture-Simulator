@@ -21,6 +21,6 @@ The Zero Trust Architecture Simulator is an educational Python application demon
 
 ### External Trust Boundary
 - Client/API boundary - All external requests must present valid JWT access tokens
-- Token trust scope - Short-lived access tokens (15 minutes) with HMAC HS256 signing
+- Token trust scope - Non-expiring access tokens with HMAC HS256 signing, JTI revocation, and session-version checks
 - Refresh token policy - If supported, refresh tokens have different scope and rotation policies
 - CORS boundary - Configured per-environment; development allows all origins, production restricts to specific domains

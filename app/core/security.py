@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import jwt
@@ -27,10 +27,8 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(subject: str, session_version: int = 0) -> str:
-    expires_at = datetime.now(UTC) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": subject,
-        "exp": expires_at,
         "iat": datetime.now(UTC),
         "jti": uuid4().hex,
         "token_type": "access",  # nosec B105
@@ -45,7 +43,7 @@ def decode_access_token(token: str) -> dict:
             token,
             settings.JWT_SECRET_KEY,
             algorithms=[settings.ALGORITHM],
-            options={"require": ["exp", "sub", "iat", "jti"]},
+            options={"require": ["sub", "iat", "jti"]},
         )
         return payload
     except jwt.ExpiredSignatureError:
@@ -70,7 +68,11 @@ def authenticate_user(db: Session, username: str, password: str) -> User | None:
 def revoke_token(db: Session, token: str) -> None:
     payload = decode_access_token(token)
     jti = payload["jti"]
-    expires_at = datetime.fromtimestamp(payload["exp"], UTC)
+    expires_at = (
+        datetime.fromtimestamp(payload["exp"], UTC)
+        if payload.get("exp") is not None
+        else datetime.max.replace(tzinfo=UTC)
+    )
     if db.scalar(select(RevokedToken).where(RevokedToken.jti == jti)) is None:
         db.add(RevokedToken(jti=jti, expires_at=expires_at))
         db.commit()

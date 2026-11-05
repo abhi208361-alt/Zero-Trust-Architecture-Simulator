@@ -60,7 +60,7 @@ Edit `.env` with your preferred settings:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | JWT_SECRET_KEY | *(required; provide a random value of at least 32 characters)* | HMAC secret for JWT signing |
-| ACCESS_TOKEN_EXPIRE_MINUTES | 15 | Access token expiry in minutes |
+| ACCESS_TOKEN_EXPIRE_MINUTES | unused | Access tokens do not expire; logout, account status, and session-version checks still revoke access |
 | ALLOWED_ORIGINS | * | CORS allowed origins (comma-separated) |
 | DATABASE_URL | sqlite:///./test.db | Database connection string |
 | PASSWORD_HASHING_BACKEND | argon2 | Password hashing algorithm |

@@ -3,7 +3,7 @@
 | Password hashing | Working (argon2) | Verify in init_db.py and login flow | test_auth.py | COMPLETED |
 | Short-lived access tokens | Working | HS256 JWT with 15-min expiration | test_auth.py | COMPLETED |
 | Token signature validation | Working | JWT HS256 verify with secret from env | test_auth.py | COMPLETED |
-| Token expiration validation | Working | Past expiration returns 401 | test_auth.py | COMPLETED |
+| Token expiration validation | Working | Supplied expired JWTs still return 401; issued tokens omit `exp` | test_auth.py | COMPLETED |
 | Issuer/audience validation | Partial | Add Audience claim to tokens | N/A | PENDING |
 | Malformed token rejection | Working | Bearer token format validation | test_auth.py | COMPLETED |
 | Revoked token rejection | Working | JTI-based revocation check | test_auth.py, test_audit_and_integration.py | COMPLETED |
