@@ -25,6 +25,9 @@ class UserResponse(BaseModel):
     full_name: str
     role: UserRole
     is_active: bool
+    theme: str = "system"
+    timezone: str = "UTC"
+    notification_preferences: str = "{}"
 
 
 class UserUpdateRequest(BaseModel):
@@ -36,6 +39,9 @@ class ProfileUpdateRequest(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=120)
     email: EmailStr | None = None
     password: str | None = Field(default=None, min_length=8, max_length=128)
+    theme: str | None = Field(default=None, pattern="^(light|dark|system|ocean)$")
+    timezone: str | None = Field(default=None, max_length=64)
+    notification_preferences: dict[str, bool] | None = None
 
 
 class UserCreateRequest(BaseModel):
