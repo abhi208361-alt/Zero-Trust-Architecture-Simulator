@@ -70,8 +70,7 @@ def local_assistant_reply(message: str, context: dict[str, Any] | None = None) -
             "This project is a FastAPI + SQLAlchemy backend with a React/Vite frontend. It demonstrates JWT "
             "authentication, role-based access control, least-privilege policy evaluation, device/MFA/risk "
             "checks, audit logging, reports, risk analysis, investigations, network visibility, and local "
-            "project-aware assistance. "
-            + PROJECT_KNOWLEDGE["backend"]
+            f"project-aware assistance. {PROJECT_KNOWLEDGE['backend']}"
         )
 
     if "default deny" in lower or "default-deny" in lower or "deny" in lower:
