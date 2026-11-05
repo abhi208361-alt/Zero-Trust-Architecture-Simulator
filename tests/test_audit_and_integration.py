@@ -72,7 +72,7 @@ def test_admin_management_and_local_assistant_endpoints(client, auth_headers):
         json={"message": "Explain default deny"},
     )
     assert assistant.status_code == 200
-    assert assistant.json()["mode"] == "local"
+    assert assistant.json()["mode"] == "project-aware-local"
 
 
 def test_profile_update_and_documentation(client, auth_headers):
