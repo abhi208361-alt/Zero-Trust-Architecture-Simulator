@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   Navigate,
   NavLink,
@@ -551,274 +551,108 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true)
-        const result = await apiFetch('/dashboard/metrics', { method: 'GET' }, token)
-        setMetrics(result)
-      } catch (e) {
-        setError((e as Error).message)
-      } finally {
-        setLoading(false)
-      }
+  const load = async () => {
+    try {
+      setLoading(true)
+      setError('')
+      setMetrics(await apiFetch('/dashboard/metrics', { method: 'GET' }, token))
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setLoading(false)
     }
-    load()
-  }, [token])
+  }
+
+  useEffect(() => { load() }, [token])
+
+  if (loading && !metrics) return <div className="dashboard-loading">Loading security overview…</div>
+  if (error && !metrics) return <div className="dashboard-error"><strong>Dashboard unavailable</strong><span>{error}</span><button className="primary-button small" onClick={load}>Retry</button></div>
+
+  const total = metrics?.total_access_requests ?? 0
+  const denied = metrics?.denied_requests ?? 0
+  const allowed = metrics?.allowed_requests ?? 0
+  const health = total ? Math.round((allowed / total) * 1000) / 10 : 100
+  const events = metrics?.recent_events ?? []
+  const time = (value: string) => new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+  const date = (value: string) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(value))
+  const eventClass = (result: string) => result === 'deny' ? 'is-danger' : result === 'allow' ? 'is-success' : 'is-info'
 
   return (
-    <div className="content-grid">
-      <div className="panel">
-        <div className="panel-header">
-          <span>Network Map</span>
-          <button className="tiny-button" type="button" onClick={() => navigate('/network-map')}>
-            Live
-          </button>
-        </div>
+    <div className="soc-dashboard">
+      <section className="dashboard-heading">
+        <div><h2>SOC Dashboard</h2><p>Real-Time Security Overview</p></div>
+        <div className="dashboard-heading-actions"><button className="dashboard-refresh" onClick={load} disabled={loading}>↻ {loading ? 'Updating' : 'Refresh'}</button><span className="operational-pill"><i /> Operational</span></div>
+      </section>
 
-        <div className="network-diagram">
-          <div className="node primary">Users</div>
-          <div className="node">Gateway</div>
-          <div className="node">Policy</div>
-          <div className="node">Analytics</div>
-          <div className="node">Identity</div>
-          <div className="node">Audit</div>
-        </div>
-      </div>
+      <section className="dashboard-stat-grid">
+        <article className="dashboard-stat threat"><span className="stat-icon">!</span><div><small>Total Threats</small><strong>{denied.toLocaleString()}</strong><em>↑ {metrics?.denial_percentage?.toFixed(0) ?? 0}%</em></div><span className="mini-sparkline" /></article>
+        <article className="dashboard-stat warning"><span className="stat-icon">▲</span><div><small>Active Threats</small><strong>{denied.toLocaleString()}</strong><em>↑ {Math.min(99, Math.max(1, Math.round(metrics?.denial_percentage ?? 0)))}%</em></div><span className="mini-sparkline" /></article>
+        <article className="dashboard-stat healthy"><span className="stat-icon">♥</span><div><small>System Health</small><strong>{health}%</strong><em>↑ {health >= 95 ? 2 : 1}%</em></div><span className="mini-sparkline" /></article>
+        <article className="dashboard-stat users"><span className="stat-icon">●</span><div><small>Total Users</small><strong>{(metrics?.users_total ?? 0).toLocaleString()}</strong><em>↑ {metrics?.users_active ?? 0}</em></div><span className="mini-sparkline" /></article>
+      </section>
 
-      <div className="panel">
-        <div className="panel-header">
-          <span>Reports</span>
-          <button className="tiny-button" type="button" onClick={() => navigate('/reports')}>
-            Generate
-          </button>
-        </div>
-        <ul className="stack-list">
-          {['Access Report', 'Audit Log', 'Policy Review', 'Risk Trends'].map((item) => (
-            <li key={item} className="stack-row">
-              <span>{item}</span>
-              <span className="status success">{item.includes('Risk') ? 'Draft' : 'Ready'}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>Risk Analysis</span>
-          <button className="tiny-button" type="button" onClick={() => navigate('/risk-analysis')}>
-            View
-          </button>
-        </div>
-
-        <div className="risk-balance">
-          <div className="risk-circle">
-            <strong>{metrics?.denied_requests ?? 72}</strong>
-            <small>Risk</small>
+      <section className="dashboard-main-grid">
+        <article className="dashboard-card activity-card">
+          <div className="dashboard-card-heading"><h3>⌁ &nbsp;Threat Activity</h3><div className="range-tabs"><button className="active">24h</button><button>7d</button><button>30d</button></div></div>
+          <div className="activity-legend"><span className="detected">● Detected</span><span className="blocked">● Blocked</span></div>
+          <div className="activity-chart">
+            <div className="chart-y"><span>150</span><span>100</span><span>50</span><span>0</span></div>
+            <svg viewBox="0 0 640 160" preserveAspectRatio="none" aria-label="Threat activity chart">
+              <path className="chart-grid-line" d="M0 10H640M0 57H640M0 105H640M0 153H640M0 10V153M106 10V153M213 10V153M320 10V153M426 10V153M533 10V153M640 10V153" />
+              <path className="activity-line detected-line" d="M0 64 L53 83 L106 95 L160 72 L213 41 L266 52 L320 34 L373 53 L426 22 L480 40 L533 66 L586 29 L640 16" />
+              <path className="activity-line blocked-line" d="M0 88 L53 105 L106 113 L160 94 L213 72 L266 81 L320 66 L373 80 L426 63 L480 76 L533 98 L586 71 L640 63" />
+            </svg>
+            <div className="chart-x"><span>12AM</span><span>4AM</span><span>8AM</span><span>12PM</span><span>4PM</span><span>8PM</span><span>12AM</span></div>
           </div>
-          <div className="risk-circle alt">
-            <strong>{metrics?.allowed_requests ?? 128}</strong>
-            <small>Safe</small>
+        </article>
+
+        <article className="dashboard-card map-card">
+          <div className="dashboard-card-heading"><h3>⊕ &nbsp;Threat Map</h3><button className="card-link" onClick={() => navigate('/network-map')}>View map →</button></div>
+          <div className="threat-map"><div className="map-land">◢ ◣ ◥ ◤</div><i className="map-point p1" /><i className="map-point p2" /><i className="map-point p3" /><i className="map-point p4" /><i className="map-point p5" /><i className="map-point p6" /></div>
+          <div className="map-legend"><span className="critical">● Critical <b>{denied}</b></span><span className="high">● High <b>{Math.round(denied * .7)}</b></span><span className="medium">● Medium <b>{Math.round(total * .1)}</b></span><span className="low">● Low <b>{allowed}</b></span></div>
+        </article>
+      </section>
+
+      <section className="dashboard-bottom-grid">
+        <article className="dashboard-card events-card">
+          <div className="dashboard-card-heading"><h3>☷ &nbsp;Recent Security Events</h3><button className="card-link" onClick={() => navigate('/audit-logs')}>View All →</button></div>
+          <div className="event-table">
+            <div className="event-row event-head"><span>Time</span><span>Event</span><span>User</span><span>Result</span></div>
+            {events.slice(0, 5).map((event: any, index: number) => <div className="event-row" key={`${event.timestamp}-${index}`}><span>{time(event.timestamp)}</span><span><b className={`event-dot ${eventClass(event.result)}`} />{event.event_type.replaceAll('_', ' ')}</span><span>{event.actor ?? 'system'}</span><span className={`result-pill ${eventClass(event.result)}`}>{event.result}</span></div>)}
+            {!events.length && <div className="empty-dashboard-row">No recent security events.</div>}
           </div>
-        </div>
+        </article>
 
-        <div className="bars-group">
-          <span style={{ height: '56%' }} />
-          <span style={{ height: '72%' }} />
-          <span style={{ height: '88%' }} />
-          <span style={{ height: '48%' }} />
-          <span style={{ height: '68%' }} />
-        </div>
-      </div>
+        <article className="dashboard-card risk-card">
+          <div className="dashboard-card-heading"><h3>▣ &nbsp;Risk Overview</h3><button className="card-link" onClick={() => navigate('/risk-analysis')}>Details →</button></div>
+          <div className="risk-gauge"><div><strong>{Math.round(100 - health)}</strong><small>High Risk</small></div></div>
+          <div className="risk-factors"><span>▲ Multiple failed logins</span><span>▲ Suspicious location</span><span>▲ Unusual access pattern</span></div>
+          <button className="risk-action" onClick={() => navigate('/assistant')}>✦ &nbsp;Consider reviewing recent access attempts.</button>
+        </article>
 
-      <div className="panel">
-        <div className="panel-header">
-          <span>Security Testing</span>
-          <button className="tiny-button" type="button" onClick={() => navigate('/security-testing')}>
-            Run
-          </button>
-        </div>
-        <ul className="stack-list">
-          <li className="stack-row">
-            <span>Auth bypass</span>
-            <span className="status warn">Queued</span>
-          </li>
-          <li className="stack-row">
-            <span>Privilege escalation</span>
-            <span className="status warn">Queued</span>
-          </li>
-          <li className="stack-row">
-            <span>Token replay</span>
-            <span className="status warn">Queued</span>
-          </li>
-          <li className="stack-row">
-            <span>Shadow access</span>
-            <span className="status warn">Queued</span>
-          </li>
-        </ul>
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>Investigations</span>
-          <button className="tiny-button" type="button" onClick={() => navigate('/investigations')}>
-            Open
-          </button>
-        </div>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Unusual access pattern</td>
-              <td><span className="status warn">Open</span></td>
-            </tr>
-            <tr>
-              <td>Privilege drift</td>
-              <td><span className="status danger">High</span></td>
-            </tr>
-            <tr>
-              <td>Token reuse</td>
-              <td><span className="status success">Closed</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>AI Assistant</span>
-          <button className="tiny-button" type="button" onClick={() => navigate('/assistant')}>
-            Ask
-          </button>
-        </div>
-
-        <div className="assistant-box">
-          <p>What are the main policy violations in the current environment?</p>
-          <button className="primary-button small" type="button" onClick={() => navigate('/assistant')}>
-            Run analysis
-          </button>
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>Documentation</span>
-          <button className="tiny-button" type="button" onClick={() => navigate('/documentation')}>
-            Open
-          </button>
-        </div>
-
-        <div className="doc-grid">
-          <span>Policy Overview</span>
-          <span>Zero Trust Design</span>
-          <span>Access Control</span>
-          <span>Risk Components</span>
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>Settings</span>
-          <button className="tiny-button" type="button" onClick={() => navigate('/settings')}>
-            Update
-          </button>
-        </div>
-
-        <form className="mini-form" onSubmit={(e) => e.preventDefault()}>
-          <label>
-            Risk threshold
-            <input type="number" defaultValue={70} />
-          </label>
-          <label className="checkbox-line">
-            <input type="checkbox" defaultChecked />
-            Trusted device required
-          </label>
-          <label className="checkbox-line">
-            <input type="checkbox" />
-            MFA required
-          </label>
-        </form>
-      </div>
-
-      <div className="panel login-panel">
-        <div className="panel-header">
-          <span>{token ? 'Session Status' : 'Login Page'}</span>
-          {!token && <button className="tiny-button" type="button">Secure</button>}
-        </div>
-        {!token ? (
-          <form className="mini-form" onSubmit={(e) => e.preventDefault()}>
-            <input placeholder="Username" />
-            <input type="password" placeholder="Password" />
-            <button type="submit" className="primary-button small">Sign In</button>
-          </form>
-        ) : (
-          <div className="session-box">
-            <div className="session-name">{currentUser?.username}</div>
-            <div className="session-role">{currentUser?.role}</div>
-            <div className="session-copy">Authenticated and monitoring active policy decisions.</div>
-          </div>
-        )}
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>Registration Page</span>
-          <button className="tiny-button" type="button">
-            Create
-          </button>
-        </div>
-        <form className="mini-form">
-          <input placeholder="Full Name" />
-          <input placeholder="Email Address" />
-          <input type="password" placeholder="Password" />
-          <button className="primary-button small" type="button">Register</button>
-        </form>
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>Access Denied Page</span>
-          <button className="tiny-button" type="button">
-            Secure
-          </button>
-        </div>
-        <div className="error-box">
-          <div className="alert-icon">!</div>
-          <h3>Access Denied</h3>
-          <p>You do not have permission to access this resource.</p>
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <span>Not Found Page</span>
-          <button className="tiny-button" type="button">
-            Back
-          </button>
-        </div>
-        <div className="empty-box">
-          <div className="alert-icon">404</div>
-          <h3>Page Not Found</h3>
-          <p>The page you requested does not exist or was removed.</p>
-        </div>
-      </div>
+        <article className="dashboard-card access-card">
+          <div className="dashboard-card-heading"><h3>⌁ &nbsp;Recent Access Activity</h3><button className="card-link" onClick={() => navigate('/audit-logs')}>View All →</button></div>
+          <div className="access-list">{events.slice(0, 5).map((event: any, index: number) => <button className="access-row" key={`${event.timestamp}-access-${index}`} onClick={() => navigate('/audit-logs')}><span className={`access-avatar ${eventClass(event.result)}`}>{(event.actor ?? 'S')[0].toUpperCase()}</span><span><b>{event.actor ?? 'System'} accessed {event.resource}</b><small>{date(event.timestamp)} · {event.action}</small></span><em>{event.result}</em></button>)}</div>
+        </article>
+      </section>
+      {error && <div className="dashboard-inline-error">{error}</div>}
+      <small className="dashboard-session">Signed in as {currentUser?.username ?? 'user'} · {metrics?.users_active ?? 0} active identities monitored</small>
     </div>
   )
 }
 
 function AccessSimulatorPage({ token }: { token: string }) {
   const [form, setForm] = useState({
-    username: 'viewer',
-    resource: 'resources/public',
+    username: 'abhi208361',
+    device_type: 'Laptop',
+    security_posture: true,
+    resource: 'resources/sensitive',
+    location: 'Bengaluru, India',
+    auth_status: true,
     action: 'read',
     simulated_device_trusted: true,
-    simulated_mfa_passed: false,
-    simulated_risk_score: 5,
+    simulated_mfa_passed: true,
+    simulated_risk_score: 12,
   })
   const [decision, setDecision] = useState<any>(null)
   const [error, setError] = useState('')
@@ -843,73 +677,54 @@ function AccessSimulatorPage({ token }: { token: string }) {
     }
   }
 
+  const decisionAllowed = decision?.decision === 'allow'
+  const decisionLabel = decision?.decision === 'allow' ? 'ACCESS GRANTED' : decision?.decision === 'deny' ? 'ACCESS DENIED' : 'ADDITIONAL VERIFICATION REQUIRED'
+  const risk = decision?.risk_score ?? form.simulated_risk_score
+  const riskLabel = risk <= 30 ? 'Low Risk' : risk <= 70 ? 'Medium Risk' : 'High Risk'
+  const setField = (key: string, value: string | boolean | number) => setForm((current) => ({ ...current, [key]: value }))
+  const timestamp = decision?.timestamp ? new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(decision.timestamp)) : 'No decision yet'
+
   return (
-    <div className="page-card">
-      <h2>Access Request Simulator</h2>
-      <form className="simulator-form" onSubmit={execute}>
-        <div className="two-col">
-          <label>
-            Username
-            <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
-          </label>
-          <label>
-            Resource
-            <input value={form.resource} onChange={(e) => setForm({ ...form, resource: e.target.value })} />
-          </label>
+    <div className="access-simulator-page">
+      <section className="access-heading">
+        <div><div className="access-brand-mark">♢</div><div><h2>Access Simulator</h2><p>Test Zero Trust access decisions in real-time</p></div></div>
+        <span className="operational-pill"><i /> Operational</span>
+      </section>
+
+      <section className="access-layout">
+        <article className="access-panel request-panel">
+          <div className="access-panel-title">◉ &nbsp;Access Request Details</div>
+          <form onSubmit={execute} className="access-form">
+            <label><span>👤 User Identity</span><input value={form.username} onChange={(e) => setField('username', e.target.value)} /></label>
+            <label><span>▣ Device Type</span><select value={form.device_type} onChange={(e) => setField('device_type', e.target.value)}><option>Laptop</option><option>Desktop</option><option>Mobile</option><option>Tablet</option></select></label>
+            <label><span>◉ Security Posture</span><select value={form.security_posture ? 'Compliant Device' : 'Non-compliant Device'} onChange={(e) => { const trusted = e.target.value === 'Compliant Device'; setField('security_posture', trusted); setField('simulated_device_trusted', trusted) }}><option>Compliant Device</option><option>Non-compliant Device</option></select></label>
+            <label><span>▣ Access Resource</span><select value={form.resource} onChange={(e) => setField('resource', e.target.value)}><option value="resources/public">Public Data</option><option value="resources/sensitive">Sensitive Data</option><option value="resources/admin">Admin Console</option></select></label>
+            <label><span>⌖ Location</span><select value={form.location} onChange={(e) => setField('location', e.target.value)}><option>Bengaluru, India</option><option>New York, USA</option><option>London, UK</option><option>Unknown Network</option></select></label>
+            <label><span>▣ Authentication Status</span><select value={form.auth_status ? 'Authenticated' : 'Unauthenticated'} onChange={(e) => { const authenticated = e.target.value === 'Authenticated'; setField('auth_status', authenticated); setField('simulated_mfa_passed', authenticated) }}><option>Authenticated</option><option>Unauthenticated</option></select></label>
+            <label><span>⚠ Risk Level</span><select value={String(form.simulated_risk_score)} onChange={(e) => setField('simulated_risk_score', Number(e.target.value))}><option value="12">Low (12%)</option><option value="45">Medium (45%)</option><option value="82">High (82%)</option></select></label>
+            <button className="simulate-button" type="submit" disabled={loading}>▶ &nbsp;{loading ? 'Evaluating Access…' : 'Simulate Access'}</button>
+          </form>
+          {error && <div className="access-error">{error}</div>}
+        </article>
+
+        <div className="access-result-column">
+          <article className="access-panel decision-panel">
+            <div className="access-panel-title">▥ &nbsp;Access Decision Result <small>◷ &nbsp;{timestamp}</small></div>
+            <div className={`decision-banner ${decision ? (decisionAllowed ? 'granted' : 'denied') : 'pending'}`}>
+              <span>{decision ? (decisionAllowed ? '✓' : '!') : '◌'}</span><div><strong>{decision ? decisionLabel : 'READY TO SIMULATE'}</strong><p>{decision ? decision.reason : 'Configure the request and run the policy evaluation.'}</p></div>
+            </div>
+            <div className="decision-summary">
+              <div className="score-gauge" style={{ '--score': `${Math.max(0, Math.min(100, risk)) * 3.6}deg` } as CSSProperties}><div><strong>{risk}%</strong><small>Risk Score</small></div></div>
+              <div className="evaluation-list"><h3>Evaluation Summary</h3><span>● User: <b>{form.username} ({form.username === 'abhi208361' ? 'Administrator' : 'User'})</b></span><span>● Device: <b>{form.simulated_device_trusted ? 'Compliant' : 'Untrusted'}</b></span><span>● Location: <b>{form.location === 'Unknown Network' ? 'Untrusted Network' : 'Trusted Network'}</b></span><span>● Resource: <b>{decisionAllowed ? 'Allowed' : 'Pending'}</b></span><span>● Policy: <b>{decision ? decisionLabel : 'Not evaluated'}</b></span></div>
+              <div className="policy-tile"><b>Zero Trust Policy</b><strong>✓</strong><span>ZT-Policy-001</span><em>Effect: {decisionAllowed ? 'Allow' : 'Evaluate'}</em></div>
+            </div>
+          </article>
+          <article className="access-panel details-panel">
+            <div className="access-panel-title">▣ &nbsp;Decision Details <button type="button" onClick={() => window.location.assign('/audit-logs')}>View Logs →</button></div>
+            {decision ? <div className="decision-details"><strong className={decisionAllowed ? 'detail-success' : 'detail-danger'}>{decisionAllowed ? '● Access granted due to valid credentials, compliant device and low risk score.' : '● Access requires attention based on current policy checks.'}</strong><p>{decision.explanation || decision.reason}</p><small>{decision.checks?.join(' · ')}</small></div> : <div className="decision-details muted-details"><strong>● Run a simulation to see the policy decision.</strong><p>The request will be evaluated against user authorization, device posture, MFA, location and risk threshold.</p></div>}
+          </article>
         </div>
-
-        <div className="two-col">
-          <label>
-            Action
-            <select value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })}>
-              <option value="read">read</option>
-              <option value="manage">manage</option>
-            </select>
-          </label>
-          <label>
-            Risk Score
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={form.simulated_risk_score}
-              onChange={(e) => setForm({ ...form, simulated_risk_score: Number(e.target.value) })}
-            />
-          </label>
-        </div>
-
-        <div className="two-col">
-          <label className="checkbox-line">
-            <input
-              type="checkbox"
-              checked={form.simulated_device_trusted}
-              onChange={(e) => setForm({ ...form, simulated_device_trusted: e.target.checked })}
-            />
-            Trusted Device
-          </label>
-
-          <label className="checkbox-line">
-            <input
-              type="checkbox"
-              checked={form.simulated_mfa_passed}
-              onChange={(e) => setForm({ ...form, simulated_mfa_passed: e.target.checked })}
-            />
-            MFA Passed
-          </label>
-        </div>
-
-        <button className="primary-button" type="submit" disabled={loading}>
-          {loading ? 'Evaluating...' : 'Evaluate Policy'}
-        </button>
-      </form>
-
-      {error && <div className="error-banner">{error}</div>}
-
-      {decision && (
-        <div className="result-box">
-          <pre>{JSON.stringify(decision, null, 2)}</pre>
-        </div>
-      )}
+      </section>
     </div>
   )
 }
@@ -1011,13 +826,33 @@ function PoliciesPage({ token }: { token: string }) {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [rules, setRules] = useState<any[]>([])
+  const [search, setSearch] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [ruleForm, setRuleForm] = useState({
+    name: '',
+    tenant: 'default',
+    description: '',
+    effect: 'allow',
+    priority: 1,
+    identities: '',
+    resources: '',
+    actions: '',
+    conditions: '',
+    enabled: true,
+  })
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true)
-        const result = await apiFetch('/policy/config', { method: 'GET' }, token)
-        setConfig(result)
+        const [configResult, rulesResult] = await Promise.all([
+          apiFetch('/policy/config', { method: 'GET' }, token),
+          apiFetch('/policy/rules', { method: 'GET' }, token),
+        ])
+        setConfig(configResult)
+        setRules(rulesResult)
       } catch (e) {
         setError((e as Error).message)
       } finally {
@@ -1041,56 +876,122 @@ function PoliciesPage({ token }: { token: string }) {
     }
   }
 
+  const resetRuleForm = () => {
+    setRuleForm({ name: '', tenant: 'default', description: '', effect: 'allow', priority: rules.length + 1, identities: '', resources: '', actions: '', conditions: '', enabled: true })
+    setEditingId(null)
+  }
+
+  const editRule = (rule: any) => {
+    setRuleForm({
+      name: rule.name,
+      tenant: rule.tenant,
+      description: rule.description,
+      effect: rule.effect,
+      priority: rule.priority,
+      identities: (rule.identities ?? []).join(', '),
+      resources: (rule.resources ?? []).join(', '),
+      actions: (rule.actions ?? []).join(', '),
+      conditions: (rule.conditions ?? []).join(', '),
+      enabled: rule.enabled,
+    })
+    setEditingId(rule.id)
+    setShowForm(true)
+  }
+
+  const saveRule = async (event: FormEvent) => {
+    event.preventDefault()
+    try {
+      setLoading(true)
+      const payload = {
+        ...ruleForm,
+        identities: ruleForm.identities.split(',').map((item) => item.trim()).filter(Boolean),
+        resources: ruleForm.resources.split(',').map((item) => item.trim()).filter(Boolean),
+        actions: ruleForm.actions.split(',').map((item) => item.trim()).filter(Boolean),
+        conditions: ruleForm.conditions.split(',').map((item) => item.trim()).filter(Boolean),
+      }
+      const result = await apiFetch(editingId ? `/policy/rules/${editingId}` : '/policy/rules', {
+        method: editingId ? 'PATCH' : 'POST',
+        body: JSON.stringify(payload),
+      }, token)
+      setRules((current) => editingId ? current.map((rule) => rule.id === editingId ? result : rule) : [...current, result].sort((a, b) => a.priority - b.priority))
+      setShowForm(false)
+      resetRuleForm()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const deleteRule = async (id: number) => {
+    if (!window.confirm('Delete this policy rule?')) return
+    try {
+      setLoading(true)
+      await apiFetch(`/policy/rules/${id}`, { method: 'DELETE' }, token)
+      setRules((current) => current.filter((rule) => rule.id !== id))
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleRule = async (rule: any) => {
+    try {
+      setLoading(true)
+      const payload = {
+        name: rule.name, tenant: rule.tenant, description: rule.description, effect: rule.effect,
+        priority: rule.priority, identities: rule.identities, resources: rule.resources,
+        actions: rule.actions, conditions: rule.conditions, enabled: !rule.enabled,
+      }
+      const result = await apiFetch(`/policy/rules/${rule.id}`, { method: 'PATCH', body: JSON.stringify(payload) }, token)
+      setRules((current) => current.map((item) => item.id === rule.id ? result : item))
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const visibleRules = rules.filter((rule) => rule.name.toLowerCase().includes(search.toLowerCase()) || rule.description.toLowerCase().includes(search.toLowerCase()))
+  const activeCount = rules.filter((rule) => rule.enabled).length
+  const disabledCount = rules.length - activeCount
+  const mfaCount = rules.filter((rule) => rule.conditions?.some((condition: string) => condition.toLowerCase().includes('mfa'))).length
+
   return (
-    <div className="page-card">
-      <h2>Policy Management</h2>
-
-      <div className="form-grid">
-        <label>
-          Risk Threshold
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={config.risk_threshold}
-            onChange={(e) => setConfig({ ...config, risk_threshold: Number(e.target.value) })}
-          />
-        </label>
-
-        <label className="checkbox-line">
-          <input
-            type="checkbox"
-            checked={config.require_trusted_device_for_high_sensitivity}
-            onChange={(e) =>
-              setConfig({
-                ...config,
-                require_trusted_device_for_high_sensitivity: e.target.checked,
-              })
-            }
-          />
-          Trusted device required
-        </label>
-
-        <label className="checkbox-line">
-          <input
-            type="checkbox"
-            checked={config.require_mfa_for_high_sensitivity}
-            onChange={(e) =>
-              setConfig({
-                ...config,
-                require_mfa_for_high_sensitivity: e.target.checked,
-              })
-            }
-          />
-          MFA required
-        </label>
-
-        <button className="primary-button" onClick={save} type="button">
-          Save Policy
-        </button>
-      </div>
-
-      {error && <div className="error-banner">{error}</div>}
+    <div className="policies-page">
+      <section className="policies-heading"><div><div className="policies-brand-mark">♢</div><div><h2>Policies Management</h2><p>Manage Zero Trust security policies and rules</p></div></div><span className="operational-pill"><i /> Operational</span></section>
+      <section className="policy-stats">
+        <div><b>▤</b><span><strong>{rules.length}</strong><small>Total Policies</small><em>↑ 12%</em></span><i /></div>
+        <div><b>✓</b><span><strong>{activeCount}</strong><small>Active Policies</small><em>↑ 8%</em></span><i /></div>
+        <div><b>Ⅱ</b><span><strong>{disabledCount}</strong><small>Disabled Policies</small><em className="down">↓ 1%</em></span><i /></div>
+        <div><b>★</b><span><strong>{mfaCount}</strong><small>Require MFA</small><em>↑ 0%</em></span><i /></div>
+      </section>
+      <section className="policies-layout">
+        <article className="policy-table-panel">
+          <div className="policy-toolbar"><h3>⬟ Security Policies</h3><input placeholder="⌕  Search policies..." value={search} onChange={(e) => setSearch(e.target.value)} /><button type="button">⚑ Filter</button><button type="button" className="create-policy-button" onClick={() => { resetRuleForm(); setShowForm(true) }}>＋ Create Policy</button></div>
+          {error && <div className="policy-error">{error}</div>}
+          <div className="policy-table-wrap"><table className="policy-table"><thead><tr><th>Policy Name</th><th>Effect</th><th>Conditions</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+            {visibleRules.map((rule) => <tr key={rule.id}><td><strong>{rule.name}</strong><small>{rule.description || 'Zero Trust policy rule'}</small></td><td><span className={`effect-pill ${rule.effect}`}>{rule.effect === 'allow' ? 'Allow' : 'Deny'}</span></td><td>{(rule.conditions ?? []).slice(0, 2).map((condition: string) => <span className="condition-line" key={condition}>{condition}</span>)}</td><td>{rule.priority}</td><td><span className={`policy-status ${rule.enabled ? 'active' : 'disabled'}`}>● {rule.enabled ? 'Active' : 'Disabled'}</span></td><td><button className="row-action edit" onClick={() => editRule(rule)}>✎</button><button className="row-action delete" onClick={() => deleteRule(rule.id)}>♜</button><button className="row-action more" onClick={() => toggleRule(rule)}>…</button></td></tr>)}
+            {!visibleRules.length && <tr><td colSpan={6} className="policy-empty">No policy rules found.</td></tr>}
+          </tbody></table></div>
+          <div className="policy-footer"><span>Showing 1 to {visibleRules.length} of {rules.length} policies</span><div><button>‹</button><b>1</b><button>2</button><button>3</button><button>4</button><button>›</button></div></div>
+        </article>
+        <aside className="new-policy-panel">
+          <h3>＋ &nbsp;{editingId ? 'Edit Policy' : 'Create New Policy'}</h3>
+          {showForm ? <form onSubmit={saveRule} className="new-policy-form">
+            <label>Policy Name *<input required placeholder="Enter policy name" value={ruleForm.name} onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })} /></label>
+            <label>Effect *<select value={ruleForm.effect} onChange={(e) => setRuleForm({ ...ruleForm, effect: e.target.value })}><option value="allow">● Allow</option><option value="deny">● Deny</option></select></label>
+            <label>Conditions<input placeholder="device_trusted, mfa_passed" value={ruleForm.conditions} onChange={(e) => setRuleForm({ ...ruleForm, conditions: e.target.value })} /></label>
+            <label>Resources<input placeholder="resources/sensitive" value={ruleForm.resources} onChange={(e) => setRuleForm({ ...ruleForm, resources: e.target.value })} /></label>
+            <label>Priority<input type="number" min={0} value={ruleForm.priority} onChange={(e) => setRuleForm({ ...ruleForm, priority: Number(e.target.value) })} /></label>
+            <label>Description<textarea value={ruleForm.description} onChange={(e) => setRuleForm({ ...ruleForm, description: e.target.value })} /></label>
+            <label className="policy-toggle"><input type="checkbox" checked={ruleForm.enabled} onChange={(e) => setRuleForm({ ...ruleForm, enabled: e.target.checked })} /> Enable Policy</label>
+            <button className="policy-submit" type="submit" disabled={loading}>▣ &nbsp;{loading ? 'Saving…' : editingId ? 'Update Policy' : 'Create Policy'}</button>
+            <button className="policy-cancel" type="button" onClick={() => { setShowForm(false); resetRuleForm() }}>Cancel</button>
+          </form> : <div className="policy-side-empty"><p>Create a policy rule to control access decisions.</p><button className="policy-submit" onClick={() => { resetRuleForm(); setShowForm(true) }}>＋ Create Policy</button><div className="policy-config"><strong>Global policy settings</strong><label>Risk threshold<input type="number" min={0} max={100} value={config.risk_threshold} onChange={(e) => setConfig({ ...config, risk_threshold: Number(e.target.value) })} /></label><label className="policy-toggle"><input type="checkbox" checked={config.require_trusted_device_for_high_sensitivity} onChange={(e) => setConfig({ ...config, require_trusted_device_for_high_sensitivity: e.target.checked })} /> Trusted device required</label><label className="policy-toggle"><input type="checkbox" checked={config.require_mfa_for_high_sensitivity} onChange={(e) => setConfig({ ...config, require_mfa_for_high_sensitivity: e.target.checked })} /> MFA required</label><button className="policy-save-config" onClick={save}>Save Global Settings</button></div></div>}
+        </aside>
+      </section>
     </div>
   )
 }
@@ -1099,63 +1000,79 @@ function AuditLogsPage({ token }: { token: string }) {
   const [logs, setLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [selected, setSelected] = useState<any>(null)
+  const [search, setSearch] = useState('')
+  const [decisionFilter, setDecisionFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+
+  const load = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true)
+      setError('')
+      const result = await apiFetch('/audit/logs?page=1&page_size=500', { method: 'GET' }, token)
+      setLogs(result)
+      setSelected((current: any) => current ? result.find((item: any) => item.id === current.id) ?? current : result[0] ?? null)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true)
-        const result = await apiFetch('/audit/logs', { method: 'GET' }, token)
-        setLogs(result)
-      } catch (e) {
-        setError((e as Error).message)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
+    void load()
+    const timer = window.setInterval(() => void load(true), 5000)
+    return () => window.clearInterval(timer)
   }, [token])
 
+  const filteredLogs = logs.filter((log) => {
+    const haystack = `${log.user} ${log.resource} ${log.action} ${log.reason} ${log.decision}`.toLowerCase()
+    return (decisionFilter === 'all' || log.decision === decisionFilter) && haystack.includes(search.toLowerCase())
+  })
+  const pages = Math.max(1, Math.ceil(filteredLogs.length / pageSize))
+  const visibleLogs = filteredLogs.slice((page - 1) * pageSize, page * pageSize)
+  const totalEvents = logs.length
+  const securityEvents = logs.filter((log) => log.action || log.resource).length
+  const criticalEvents = logs.filter((log) => Number(log.risk_score) >= 80 || log.decision === 'deny').length
+  const failedLogins = logs.filter((log) => `${log.action} ${log.reason}`.toLowerCase().includes('login')).length
+  const formatTime = (value: string) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(value))
+  const severity = (log: any) => Number(log.risk_score) >= 80 ? 'Critical' : log.decision === 'deny' ? 'High' : Number(log.risk_score) >= 50 ? 'Medium' : 'Low'
+  const exportCsv = () => {
+    const headers = ['Timestamp', 'User', 'Resource', 'Action', 'Decision', 'Risk Score', 'Reason']
+    const rows = filteredLogs.map((log) => [log.timestamp, log.user, log.resource, log.action, log.decision, log.risk_score, log.reason])
+    const csv = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell ?? '').replaceAll('"', '""')}"`).join(',')).join('\n')
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    link.download = 'zero-trust-audit-logs.csv'
+    link.click()
+    URL.revokeObjectURL(link.href)
+  }
+
   return (
-    <div className="page-card">
-      <h2>Audit Logs</h2>
-
-      <div className="toolbar">
-        <select>
-          <option>Last 2 hours</option>
-          <option>Last 24 hours</option>
-          <option>Last 7 days</option>
-        </select>
-        <input placeholder="Search logs" />
-      </div>
-
-      <div className="table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Actor</th>
-              <th>Resource</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map((log, index) => (
-              <tr key={`${log.id ?? index}`}>
-                <td>{log.timestamp ?? log.created_at ?? '—'}</td>
-                <td>{log.user ?? log.actor ?? '—'}</td>
-                <td>{log.resource ?? '—'}</td>
-                <td>
-                  <span className={log.result === 'allow' ? 'status success' : 'status danger'}>
-                    {log.result ?? (log.decision ?? '—')}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {error && <div className="error-banner">{error}</div>}
+    <div className="audit-page">
+      <section className="audit-heading"><div><div className="audit-brand-mark">▤</div><div><h2>Audit Logs</h2><p>Track and monitor all security events and activities</p></div></div><span className="operational-pill"><i /> Operational</span></section>
+      <section className="audit-stats">
+        <div><b>✓</b><span><strong>{totalEvents.toLocaleString()}</strong><small>Total Events</small><em>↑ 12%</em></span><i /></div>
+        <div><b>✓</b><span><strong>{securityEvents.toLocaleString()}</strong><small>Security Events</small><em>↑ 8%</em></span><i /></div>
+        <div><b>!</b><span><strong>{criticalEvents.toLocaleString()}</strong><small>Critical Events</small><em className="bad">↑ 5%</em></span><i /></div>
+        <div><b>i</b><span><strong>{failedLogins.toLocaleString()}</strong><small>Failed Logins</small><em>↑ 15%</em></span><i /></div>
+      </section>
+      <section className="audit-filters"><select><option>▣ Last 24 Hours</option><option>Last 7 Days</option><option>Last 30 Days</option></select><select><option>All Users</option></select><select><option>All Event Types</option></select><select value={decisionFilter} onChange={(e) => { setDecisionFilter(e.target.value); setPage(1) }}><option value="all">All Severities</option><option value="allow">Low / Allowed</option><option value="deny">High / Denied</option></select><select><option>All Statuses</option></select><input placeholder="⌕ Search logs..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} /><button onClick={exportCsv}>⇩ Export CSV</button><button onClick={() => window.print()}>▣ Export PDF</button></section>
+      <section className="audit-layout">
+        <article className="audit-table-panel">
+          <div className="audit-panel-title"><span>☷ &nbsp;Audit Logs</span><small>{loading ? 'Updating…' : `Showing ${filteredLogs.length ? (page - 1) * pageSize + 1 : 0}–${Math.min(page * pageSize, filteredLogs.length)} of ${filteredLogs.length} logs`} <i /> Live</small></div>
+          <div className="audit-table-wrap"><table className="audit-table"><thead><tr><th>Time</th><th>Event</th><th>User</th><th>IP Address</th><th>Severity</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+            {visibleLogs.map((log, index) => <tr key={log.id ?? index} className={selected?.id === log.id ? 'selected-row' : ''} onClick={() => setSelected(log)}><td>{formatTime(log.timestamp)}</td><td><span className="audit-event-icon">{log.decision === 'deny' ? '◆' : '●'}</span>{log.action || 'Access Decision'}</td><td>{log.user || 'system'}</td><td>{log.ip_address || '—'}</td><td><span className={`severity-pill ${severity(log).toLowerCase()}`}>{severity(log)}</span></td><td><span className={`audit-status ${log.decision === 'allow' ? 'success' : 'blocked'}`}>{log.decision === 'allow' ? 'Success' : 'Blocked'}</span></td><td><button className="view-log" onClick={(event) => { event.stopPropagation(); setSelected(log) }}>◉</button></td></tr>)}
+            {!visibleLogs.length && <tr><td colSpan={7} className="audit-empty">{error || 'No audit events match the current filters.'}</td></tr>}
+          </tbody></table></div>
+          <div className="audit-footer"><div>{Array.from({ length: Math.min(pages, 5) }, (_, index) => <button className={page === index + 1 ? 'current' : ''} key={index} onClick={() => setPage(index + 1)}>{index + 1}</button>)}<button onClick={() => setPage(Math.min(pages, page + 1))}>›</button></div><label>Rows per page: <select><option>10</option></select></label></div>
+        </article>
+        <aside className="audit-detail-panel">
+          <div className="audit-panel-title">▣ &nbsp;Log Details</div>
+          {selected ? <div className="audit-detail-content"><div className="audit-detail-heading"><span className="detail-alert">{selected.decision === 'deny' ? '!' : '✓'}</span><strong>{selected.decision === 'deny' ? 'Access Denied' : 'Access Granted'}</strong><em className={severity(selected).toLowerCase()}>{severity(selected)} Severity</em></div><dl><dt>Time</dt><dd>{formatTime(selected.timestamp)}</dd><dt>User</dt><dd>{selected.user || 'system'}</dd><dt>IP Address</dt><dd>{selected.ip_address || 'Not recorded'}</dd><dt>Event</dt><dd>{selected.action || 'Access Decision'}</dd><dt>Status</dt><dd className={selected.decision === 'allow' ? 'detail-green' : 'detail-red'}>{selected.decision === 'allow' ? 'Success' : 'Blocked'}</dd></dl><h4>Description</h4><p className="detail-description">{selected.reason || 'No description was provided for this event.'}</p><h4>Additional Information</h4><dl><dt>Resource</dt><dd>{selected.resource || '—'}</dd><dt>Risk Score</dt><dd>{selected.risk_score ?? 0}</dd><dt>Correlation ID</dt><dd>{selected.correlation_id || '—'}</dd></dl><button className="detail-button" onClick={() => window.alert(JSON.stringify(selected, null, 2))}>▣ &nbsp;View Full Details</button></div> : <div className="audit-no-selection">Select a log to view all available information.</div>}
+        </aside>
+      </section>
     </div>
   )
 }
