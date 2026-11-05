@@ -68,6 +68,18 @@ function getStoredUser() {
   }
 }
 
+function resolveTheme(theme: string) {
+  if (theme === 'system') {
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+  }
+  return theme === 'light' || theme === 'ocean' ? theme : 'dark'
+}
+
+function applyTheme(theme: string, color = localStorage.getItem('zt-color') ?? 'blue') {
+  document.documentElement.dataset.theme = resolveTheme(theme)
+  document.documentElement.dataset.color = color
+}
+
 function App() {
   const [token, setToken] = useState<string>(() => getStoredToken())
   const [currentUser, setCurrentUser] = useState<User | null>(() => getStoredUser())
@@ -76,11 +88,13 @@ function App() {
 
   useEffect(() => {
     const storedTheme = localStorage.getItem('zt-theme') ?? currentUser?.theme ?? 'system'
-    const resolved = storedTheme === 'system'
-      ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
-      : storedTheme
-    document.documentElement.dataset.theme = resolved
-    document.documentElement.dataset.color = localStorage.getItem('zt-color') ?? 'blue'
+    applyTheme(storedTheme)
+    if (storedTheme !== 'system') return
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)')
+    const handleChange = () => applyTheme('system')
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
   }, [currentUser?.theme])
 
   useEffect(() => {
@@ -1477,6 +1491,10 @@ function SettingsPage({ token, currentUser }: { token: string; currentUser: User
   })
   const [status, setStatus] = useState('')
   useEffect(() => {
+    applyTheme(form.theme, form.color)
+  }, [form.theme, form.color])
+
+  useEffect(() => {
     void apiFetch('/auth/me', { method: 'GET' }, token).then((user) => setForm((current) => ({
       ...current,
       full_name: user.full_name,
@@ -1508,11 +1526,7 @@ function SettingsPage({ token, currentUser }: { token: string; currentUser: User
       }) }, token)
       localStorage.setItem('zt-theme', form.theme)
       localStorage.setItem('zt-color', form.color)
-      const resolvedTheme = form.theme === 'system'
-        ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
-        : form.theme
-      document.documentElement.dataset.theme = resolvedTheme
-      document.documentElement.dataset.color = form.color
+      applyTheme(form.theme, form.color)
       setStatus('Settings saved.')
     } catch (e) {
       setStatus((e as Error).message)

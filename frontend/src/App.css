@@ -858,3 +858,219 @@ h1 {
 .audit-detail-content { padding: 10px; }.audit-detail-heading { display: flex; align-items: center; gap: 6px; padding-bottom: 9px; border-bottom: 1px solid #e6edf6; }.detail-alert { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #e94251; font-weight: 900; }.audit-detail-heading strong { color: #263d62; font-size: 11px; }.audit-detail-heading em { margin-left: auto; padding: 4px 6px; border-radius: 8px; color: #d43d4a; background: #ffe0e4; font-size: 7px; font-style: normal; font-weight: 800; }.audit-detail-heading em.low { color: #0b9764; background: #d8f8e9; }.audit-detail-heading em.medium { color: #dc8508; background: #fff0d2; }.audit-detail-content dl { display: grid; grid-template-columns: 60px 1fr; gap: 6px 5px; margin: 10px 0; font-size: 8px; }.audit-detail-content dt { color: #71819a; }.audit-detail-content dd { margin: 0; overflow: hidden; color: #344a6d; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }.detail-green { color: #0a9b67 !important; }.detail-red { color: #db3d4c !important; }.audit-detail-content h4 { margin: 11px 0 5px; color: #354a6b; font-size: 9px; }.detail-description { margin: 0; padding: 7px; border-radius: 4px; color: #637493; background: #eaf2ff; font-size: 8px; line-height: 1.4; }.detail-button { width: 100%; margin-top: 8px; padding: 7px; border: 0; border-radius: 4px; color: #fff; background: #1674ed; font-size: 8px; font-weight: 800; cursor: pointer; }.audit-no-selection { padding: 35px 15px; color: #71819d; font-size: 9px; text-align: center; }
 @media (max-width: 950px) { .audit-stats { grid-template-columns: repeat(2, 1fr); }.audit-layout { grid-template-columns: 1fr; }.audit-detail-panel { max-width: none; }.audit-filters { flex-wrap: wrap; }.audit-filters input { flex: 1 1 180px; } }
 @media (max-width: 560px) { .audit-heading { align-items: flex-start; gap: 10px; flex-direction: column; }.audit-stats { grid-template-columns: 1fr; }.audit-layout { display: block; }.audit-detail-panel { margin-top: 10px; }.audit-table { min-width: 720px; } }
+
+/* Keep every route on the selected application theme. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page-surface: #0b1c2e;
+  --page-surface-strong: #102640;
+  --page-border: rgba(138, 160, 196, 0.24);
+  --page-text: #ebf3ff;
+  --page-muted: #9ab0ca;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --page-surface: rgba(255, 255, 255, 0.94);
+  --page-surface-strong: #f7fbff;
+  --page-border: rgba(57, 103, 163, 0.24);
+  --page-text: #132d54;
+  --page-muted: #587393;
+}
+
+:root[data-theme='ocean'] {
+  color-scheme: dark;
+  --page-surface: #092b45;
+  --page-surface-strong: #0d3a5d;
+  --page-border: rgba(105, 202, 255, 0.34);
+  --page-text: #effaff;
+  --page-muted: #a7cbe1;
+}
+
+:root[data-theme='dark'] .main-panel,
+:root[data-theme='ocean'] .main-panel {
+  color: var(--page-text);
+}
+
+:root[data-theme='dark'] .dashboard-stat,
+:root[data-theme='dark'] .dashboard-card,
+:root[data-theme='dark'] .access-panel,
+:root[data-theme='dark'] .policy-stats > div,
+:root[data-theme='dark'] .policy-table-panel,
+:root[data-theme='dark'] .new-policy-panel,
+:root[data-theme='dark'] .audit-stats > div,
+:root[data-theme='dark'] .audit-table-panel,
+:root[data-theme='dark'] .audit-detail-panel,
+:root[data-theme='dark'] .network-panel,
+:root[data-theme='dark'] .report-panel,
+:root[data-theme='dark'] .risk-panel,
+:root[data-theme='dark'] .investigation-panel,
+:root[data-theme='dark'] .assistant-chat-panel,
+:root[data-theme='dark'] .assistant-side-panel,
+:root[data-theme='dark'] .documentation-sidebar,
+:root[data-theme='dark'] .documentation-content-card,
+:root[data-theme='dark'] .documentation-side-card,
+:root[data-theme='ocean'] .dashboard-stat,
+:root[data-theme='ocean'] .dashboard-card,
+:root[data-theme='ocean'] .access-panel,
+:root[data-theme='ocean'] .policy-stats > div,
+:root[data-theme='ocean'] .policy-table-panel,
+:root[data-theme='ocean'] .new-policy-panel,
+:root[data-theme='ocean'] .audit-stats > div,
+:root[data-theme='ocean'] .audit-table-panel,
+:root[data-theme='ocean'] .audit-detail-panel,
+:root[data-theme='ocean'] .network-panel,
+:root[data-theme='ocean'] .report-panel,
+:root[data-theme='ocean'] .risk-panel,
+:root[data-theme='ocean'] .investigation-panel,
+:root[data-theme='ocean'] .assistant-chat-panel,
+:root[data-theme='ocean'] .assistant-side-panel,
+:root[data-theme='ocean'] .documentation-sidebar,
+:root[data-theme='ocean'] .documentation-content-card,
+:root[data-theme='ocean'] .documentation-side-card {
+  color: var(--page-text);
+  background: var(--page-surface);
+  border-color: var(--page-border);
+  box-shadow: 0 5px 16px var(--shadow);
+}
+
+:root[data-theme='dark'] .dashboard-heading h2,
+:root[data-theme='dark'] .access-heading h2,
+:root[data-theme='dark'] .policies-heading h2,
+:root[data-theme='dark'] .audit-heading h2,
+:root[data-theme='dark'] .dashboard-card-heading h3,
+:root[data-theme='dark'] .policy-stats strong,
+:root[data-theme='dark'] .policy-table td strong,
+:root[data-theme='dark'] .new-policy-panel h3,
+:root[data-theme='dark'] .audit-stats strong,
+:root[data-theme='dark'] .audit-detail-heading strong,
+:root[data-theme='dark'] .documentation-section-nav button,
+:root[data-theme='dark'] .documentation-content-card,
+:root[data-theme='dark'] .documentation-side-card,
+:root[data-theme='ocean'] .dashboard-heading h2,
+:root[data-theme='ocean'] .access-heading h2,
+:root[data-theme='ocean'] .policies-heading h2,
+:root[data-theme='ocean'] .audit-heading h2,
+:root[data-theme='ocean'] .dashboard-card-heading h3,
+:root[data-theme='ocean'] .policy-stats strong,
+:root[data-theme='ocean'] .policy-table td strong,
+:root[data-theme='ocean'] .new-policy-panel h3,
+:root[data-theme='ocean'] .audit-stats strong,
+:root[data-theme='ocean'] .audit-detail-heading strong,
+:root[data-theme='ocean'] .documentation-section-nav button,
+:root[data-theme='ocean'] .documentation-content-card,
+:root[data-theme='ocean'] .documentation-side-card {
+  color: var(--page-text);
+}
+
+:root[data-theme='dark'] .dashboard-heading p,
+:root[data-theme='dark'] .access-heading p,
+:root[data-theme='dark'] .policies-heading p,
+:root[data-theme='dark'] .audit-heading p,
+:root[data-theme='dark'] .dashboard-stat small,
+:root[data-theme='dark'] .policy-stats small,
+:root[data-theme='dark'] .audit-stats small,
+:root[data-theme='dark'] .policy-footer,
+:root[data-theme='dark'] .audit-footer,
+:root[data-theme='dark'] .policy-side-empty p,
+:root[data-theme='dark'] .documentation-section-nav a,
+:root[data-theme='dark'] .documentation-items small,
+:root[data-theme='dark'] .help-card p,
+:root[data-theme='dark'] .video-reference-card small,
+:root[data-theme='ocean'] .dashboard-heading p,
+:root[data-theme='ocean'] .access-heading p,
+:root[data-theme='ocean'] .policies-heading p,
+:root[data-theme='ocean'] .audit-heading p,
+:root[data-theme='ocean'] .dashboard-stat small,
+:root[data-theme='ocean'] .policy-stats small,
+:root[data-theme='ocean'] .audit-stats small,
+:root[data-theme='ocean'] .policy-footer,
+:root[data-theme='ocean'] .audit-footer,
+:root[data-theme='ocean'] .policy-side-empty p,
+:root[data-theme='ocean'] .documentation-section-nav a,
+:root[data-theme='ocean'] .documentation-items small,
+:root[data-theme='ocean'] .help-card p,
+:root[data-theme='ocean'] .video-reference-card small {
+  color: var(--page-muted);
+}
+
+:root[data-theme='dark'] .dashboard-stat,
+:root[data-theme='dark'] .dashboard-card,
+:root[data-theme='dark'] .access-panel,
+:root[data-theme='dark'] .policy-table-panel,
+:root[data-theme='dark'] .new-policy-panel,
+:root[data-theme='dark'] .audit-table-panel,
+:root[data-theme='dark'] .audit-detail-panel,
+:root[data-theme='ocean'] .dashboard-stat,
+:root[data-theme='ocean'] .dashboard-card,
+:root[data-theme='ocean'] .access-panel,
+:root[data-theme='ocean'] .policy-table-panel,
+:root[data-theme='ocean'] .new-policy-panel,
+:root[data-theme='ocean'] .audit-table-panel,
+:root[data-theme='ocean'] .audit-detail-panel {
+  color: var(--page-text);
+}
+
+:root[data-theme='dark'] .dashboard-stat strong,
+:root[data-theme='dark'] .policy-table td,
+:root[data-theme='dark'] .audit-table td,
+:root[data-theme='dark'] .access-form label span,
+:root[data-theme='dark'] .access-form label input,
+:root[data-theme='dark'] .access-form label select,
+:root[data-theme='dark'] .new-policy-form label,
+:root[data-theme='dark'] .new-policy-form input,
+:root[data-theme='dark'] .new-policy-form select,
+:root[data-theme='dark'] .new-policy-form textarea,
+:root[data-theme='dark'] .policy-config input,
+:root[data-theme='dark'] .audit-table td,
+:root[data-theme='ocean'] .dashboard-stat strong,
+:root[data-theme='ocean'] .policy-table td,
+:root[data-theme='ocean'] .audit-table td,
+:root[data-theme='ocean'] .access-form label span,
+:root[data-theme='ocean'] .access-form label input,
+:root[data-theme='ocean'] .access-form label select,
+:root[data-theme='ocean'] .new-policy-form label,
+:root[data-theme='ocean'] .new-policy-form input,
+:root[data-theme='ocean'] .new-policy-form select,
+:root[data-theme='ocean'] .new-policy-form textarea,
+:root[data-theme='ocean'] .policy-config input,
+:root[data-theme='ocean'] .audit-table td {
+  color: var(--page-text);
+}
+
+:root[data-theme='dark'] .access-form label input,
+:root[data-theme='dark'] .access-form label select,
+:root[data-theme='dark'] .new-policy-form input,
+:root[data-theme='dark'] .new-policy-form select,
+:root[data-theme='dark'] .new-policy-form textarea,
+:root[data-theme='dark'] .policy-config input,
+:root[data-theme='dark'] .audit-filters input,
+:root[data-theme='dark'] .audit-filters select,
+:root[data-theme='ocean'] .access-form label input,
+:root[data-theme='ocean'] .access-form label select,
+:root[data-theme='ocean'] .new-policy-form input,
+:root[data-theme='ocean'] .new-policy-form select,
+:root[data-theme='ocean'] .new-policy-form textarea,
+:root[data-theme='ocean'] .policy-config input,
+:root[data-theme='ocean'] .audit-filters input,
+:root[data-theme='ocean'] .audit-filters select {
+  background: var(--page-surface-strong);
+  border-color: var(--page-border);
+}
+
+:root[data-theme='dark'] .policy-table th,
+:root[data-theme='dark'] .audit-table th,
+:root[data-theme='dark'] .audit-filters input,
+:root[data-theme='dark'] .audit-filters select,
+:root[data-theme='dark'] .policy-footer button,
+:root[data-theme='dark'] .audit-footer button,
+:root[data-theme='ocean'] .policy-table th,
+:root[data-theme='ocean'] .audit-table th,
+:root[data-theme='ocean'] .audit-filters input,
+:root[data-theme='ocean'] .audit-filters select,
+:root[data-theme='ocean'] .policy-footer button,
+:root[data-theme='ocean'] .audit-footer button {
+  color: var(--page-muted);
+  background: var(--page-surface-strong);
+  border-color: var(--page-border);
+}
