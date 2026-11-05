@@ -27,6 +27,20 @@ type PolicyConfig = {
   require_mfa_for_high_sensitivity: boolean
 }
 
+type PolicyRule = {
+  id: number
+  name: string
+  tenant: string
+  description: string
+  effect: 'allow' | 'deny'
+  priority: number
+  identities: string[]
+  resources: string[]
+  actions: string[]
+  conditions: string[]
+  enabled: boolean
+}
+
 type AuthResponse = {
   access_token: string
   token_type: string
@@ -846,7 +860,7 @@ function PoliciesPage({ token }: { token: string }) {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [rules, setRules] = useState<any[]>([])
+  const [rules, setRules] = useState<PolicyRule[]>([])
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -901,7 +915,7 @@ function PoliciesPage({ token }: { token: string }) {
     setEditingId(null)
   }
 
-  const editRule = (rule: any) => {
+  const editRule = (rule: PolicyRule) => {
     setRuleForm({
       name: rule.name,
       tenant: rule.tenant,
@@ -956,7 +970,7 @@ function PoliciesPage({ token }: { token: string }) {
     }
   }
 
-  const toggleRule = async (rule: any) => {
+  const toggleRule = async (rule: PolicyRule) => {
     try {
       setLoading(true)
       const payload = {
@@ -1001,9 +1015,12 @@ function PoliciesPage({ token }: { token: string }) {
           <h3>＋ &nbsp;{editingId ? 'Edit Policy' : 'Create New Policy'}</h3>
           {showForm ? <form onSubmit={saveRule} className="new-policy-form">
             <label>Policy Name *<input required placeholder="Enter policy name" value={ruleForm.name} onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })} /></label>
+            <label>Tenant<input placeholder="default" value={ruleForm.tenant} onChange={(e) => setRuleForm({ ...ruleForm, tenant: e.target.value })} /></label>
             <label>Effect *<select value={ruleForm.effect} onChange={(e) => setRuleForm({ ...ruleForm, effect: e.target.value })}><option value="allow">● Allow</option><option value="deny">● Deny</option></select></label>
-            <label>Conditions<input placeholder="device_trusted, mfa_passed" value={ruleForm.conditions} onChange={(e) => setRuleForm({ ...ruleForm, conditions: e.target.value })} /></label>
+            <label>Identities<input placeholder="admin, analyst" value={ruleForm.identities} onChange={(e) => setRuleForm({ ...ruleForm, identities: e.target.value })} /></label>
             <label>Resources<input placeholder="resources/sensitive" value={ruleForm.resources} onChange={(e) => setRuleForm({ ...ruleForm, resources: e.target.value })} /></label>
+            <label>Actions<input placeholder="read, write, manage" value={ruleForm.actions} onChange={(e) => setRuleForm({ ...ruleForm, actions: e.target.value })} /></label>
+            <label>Conditions<input placeholder="device_trusted, mfa_passed" value={ruleForm.conditions} onChange={(e) => setRuleForm({ ...ruleForm, conditions: e.target.value })} /></label>
             <label>Priority<input type="number" min={0} value={ruleForm.priority} onChange={(e) => setRuleForm({ ...ruleForm, priority: Number(e.target.value) })} /></label>
             <label>Description<textarea value={ruleForm.description} onChange={(e) => setRuleForm({ ...ruleForm, description: e.target.value })} /></label>
             <label className="policy-toggle"><input type="checkbox" checked={ruleForm.enabled} onChange={(e) => setRuleForm({ ...ruleForm, enabled: e.target.checked })} /> Enable Policy</label>
