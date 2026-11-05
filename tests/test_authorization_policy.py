@@ -27,6 +27,27 @@ def test_viewer_allowed_and_denied_paths(client, auth_headers):
     assert denied.status_code == 403
 
 
+def test_every_authenticated_role_can_use_access_simulator(client, auth_headers):
+    for username, password in (
+        ("viewer", "viewer123!"),
+        ("analyst", "analyst123!"),
+        ("admin", "admin123!"),
+    ):
+        response = client.post(
+            "/api/v1/policy/evaluate",
+            headers=auth_headers(username, password),
+            json={
+                "username": username,
+                "resource": "resources/public",
+                "action": "read",
+                "simulated_device_trusted": True,
+                "simulated_mfa_passed": True,
+                "simulated_risk_score": 10,
+            },
+        )
+        assert response.status_code == 200
+
+
 def test_analyst_allowed_security_events(client, auth_headers):
     analyst_headers = auth_headers("analyst", "analyst123!")
     response = client.post(

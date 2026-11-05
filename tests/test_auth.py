@@ -18,6 +18,32 @@ def test_valid_login_and_me(client):
     assert me.json()["role"] == "viewer"
 
 
+def test_login_tokens_do_not_expire(client):
+    response = client.post("/api/v1/auth/login", json={"username": "viewer", "password": "viewer123!"})
+    assert response.status_code == 200
+    assert response.json()["expires_at"] is None
+
+    token_payload = jwt.decode(
+        response.json()["access_token"],
+        os.environ["JWT_SECRET_KEY"],
+        algorithms=["HS256"],
+        options={"verify_exp": False},
+    )
+    assert "exp" not in token_payload
+
+
+def test_non_expiring_tokens_are_still_revocable(client):
+    token = client.post(
+        "/api/v1/auth/login",
+        json={"username": "viewer", "password": "viewer123!"},
+    ).json()["access_token"]
+    headers = {"Authorization": "Bearer " + token}
+
+    logout = client.post("/api/v1/auth/logout", headers=headers)
+    assert logout.status_code == 200
+    assert client.get("/api/v1/auth/me", headers=headers).status_code == 401
+
+
 def test_registration_creates_viewer_account(client):
     response = client.post(
         "/api/v1/auth/register",

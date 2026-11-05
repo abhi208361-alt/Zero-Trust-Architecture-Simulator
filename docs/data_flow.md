@@ -14,10 +14,10 @@ sequenceDiagram
     DB-->>FastAPI: user record
     alt Valid credentials
         FastAPI->>FastAPI: create_access_token(username)
-        FastAPI-->>Client: TokenResponse {access_token, expires_at}
+        FastAPI-->>Client: TokenResponse {access_token, expires_at: null}
         Client->>FastAPI: Subsequent requests
             Authorization: Bearer <token>
-        FastAPI->>FastAPI: decode_token(jti, exp, iss, aud)
+        FastAPI->>FastAPI: decode_token(jti, signature, session_version)
         alt Token valid
             FastAPI->>FastAPI: get_current_user(username)
             FastAPI->>RBAC: check permissions

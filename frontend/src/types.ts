@@ -12,7 +12,7 @@ export interface UserRecord {
 export interface TokenResponse {
   access_token: string
   token_type: string
-  expires_at: string
+  expires_at: string | null
 }
 
 export interface PolicyConfig {

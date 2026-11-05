@@ -16,7 +16,7 @@
 - **Decision**: Use JSON Web Tokens signed with HS256 algorithm
 - **Rationale**: Industry standard for API auth, supports expiration, issuer, audience claims
 - **JWT Claims**: sub, exp, iat, jti, token_type, iss, aud
-- **Token Lifetime**: 15 minutes (configurable via ACCESS_TOKEN_EXPIRE_MINUTES)
+- **Token Lifetime**: Non-expiring access tokens; logout, account deactivation, password changes, and session-version checks still revoke access
 ### 5. RBAC: Three-Role Model
 - **Decision**: Implement VIEWER, ANALYST, ADMINISTRATOR roles with explicit permissions
 - **Rationale**: Clear separation of duties for educational simulator
@@ -33,8 +33,8 @@
 - **MongoDB noted**: Per project specification for persistence roadmap
 - **Status**: Implemented with models in app/models/, session in app/db/
 ### 8. Token Strategy
-- **Decision**: Short-lived access tokens with JTI-based revocation
-- **Access Token**: 15 minutes, signed HS256
+- **Decision**: Non-expiring access tokens with JTI-based revocation
+- **Access Token**: Signed HS256 token without an `exp` claim
 - **Revocation**: JTI added to RevokedToken table on logout
 - **Cleanup**: Expired revocation entries cleaned on token verification
 ### 9. Audit Logging

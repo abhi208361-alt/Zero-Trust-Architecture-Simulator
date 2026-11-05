@@ -30,7 +30,7 @@ type PolicyConfig = {
 type AuthResponse = {
   access_token: string
   token_type: string
-  expires_at: string
+  expires_at: string | null
 }
 
 const API = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api/v1'
@@ -655,9 +655,9 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
   )
 }
 
-function AccessSimulatorPage({ token }: { token: string }) {
+function AccessSimulatorPage({ token, currentUser }: { token: string; currentUser: User | null }) {
   const [form, setForm] = useState({
-    username: 'abhi208361',
+    username: currentUser?.username ?? '',
     device_type: 'Laptop',
     security_posture: true,
     resource: 'resources/sensitive',
@@ -698,6 +698,12 @@ function AccessSimulatorPage({ token }: { token: string }) {
   const setField = (key: string, value: string | boolean | number) => setForm((current) => ({ ...current, [key]: value }))
   const timestamp = decision?.timestamp ? new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(decision.timestamp)) : 'No decision yet'
 
+  useEffect(() => {
+    if (currentUser?.username && form.username !== currentUser.username) {
+      setForm((current) => ({ ...current, username: currentUser.username }))
+    }
+  }, [currentUser?.username, form.username])
+
   return (
     <div className="access-simulator-page">
       <section className="access-heading">
@@ -729,7 +735,7 @@ function AccessSimulatorPage({ token }: { token: string }) {
             </div>
             <div className="decision-summary">
               <div className="score-gauge" style={{ '--score': `${Math.max(0, Math.min(100, risk)) * 3.6}deg` } as CSSProperties}><div><strong>{risk}%</strong><small>Risk Score</small></div></div>
-              <div className="evaluation-list"><h3>Evaluation Summary</h3><span>● User: <b>{form.username} ({form.username === 'abhi208361' ? 'Administrator' : 'User'})</b></span><span>● Device: <b>{form.simulated_device_trusted ? 'Compliant' : 'Untrusted'}</b></span><span>● Location: <b>{form.location === 'Unknown Network' ? 'Untrusted Network' : 'Trusted Network'}</b></span><span>● Resource: <b>{decisionAllowed ? 'Allowed' : 'Pending'}</b></span><span>● Policy: <b>{decision ? decisionLabel : 'Not evaluated'}</b></span></div>
+              <div className="evaluation-list"><h3>Evaluation Summary</h3><span>● User: <b>{form.username}</b></span><span>● Device: <b>{form.simulated_device_trusted ? 'Compliant' : 'Untrusted'}</b></span><span>● Location: <b>{form.location === 'Unknown Network' ? 'Untrusted Network' : 'Trusted Network'}</b></span><span>● Resource: <b>{decisionAllowed ? 'Allowed' : 'Pending'}</b></span><span>● Policy: <b>{decision ? decisionLabel : 'Not evaluated'}</b></span></div>
               <div className="policy-tile"><b>Zero Trust Policy</b><strong>✓</strong><span>ZT-Policy-001</span><em>Effect: {decisionAllowed ? 'Allow' : 'Evaluate'}</em></div>
             </div>
           </article>
