@@ -27,20 +27,6 @@ type PolicyConfig = {
   require_mfa_for_high_sensitivity: boolean
 }
 
-type PolicyRule = {
-  id: number
-  name: string
-  tenant: string
-  description: string
-  effect: 'allow' | 'deny'
-  priority: number
-  identities: string[]
-  resources: string[]
-  actions: string[]
-  conditions: string[]
-  enabled: boolean
-}
-
 type AuthResponse = {
   access_token: string
   token_type: string
@@ -230,7 +216,7 @@ function ProtectedLayout({
   }
 
   return (
-    <div className={`layout-shell ${location.pathname === '/dashboard' ? 'dashboard-layout' : ''}`}>
+    <div className="layout-shell">
       <aside className="sidebar">
         <div className="brand-row">
           <div className="brand-mark">Z</div>
@@ -599,81 +585,68 @@ function DashboardPage({ token, currentUser }: { token: string; currentUser: Use
   const total = metrics?.total_access_requests ?? 0
   const denied = metrics?.denied_requests ?? 0
   const allowed = metrics?.allowed_requests ?? 0
-  const health = total ? Math.round((allowed / total) * 1000) / 10 : 99.7
+  const health = total ? Math.round((allowed / total) * 1000) / 10 : 100
   const events = metrics?.recent_events ?? []
   const time = (value: string) => new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+  const date = (value: string) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(value))
   const eventClass = (result: string) => result === 'deny' ? 'is-danger' : result === 'allow' ? 'is-success' : 'is-info'
-  const threatCount = Math.max(denied, 1248)
-  const activeThreats = Math.max(Math.round(denied * 0.02), 23)
-  const blockedAttacks = Math.max(allowed, 1225)
-  const displayName = currentUser?.full_name || currentUser?.username || 'Abhilash'
 
   return (
     <div className="soc-dashboard">
-      <header className="soc-topbar">
-        <div className="soc-search"><span>⌕</span><input aria-label="Search" placeholder="Search threats, users, IP addresses..." /></div>
-        <div className="soc-top-actions"><span className="soc-online"><i /> System Online</span><button aria-label="Notifications" className="soc-icon-button">♧<b>3</b></button><button aria-label="Toggle theme" className="soc-icon-button">☾</button></div>
-      </header>
-
-      <section className="soc-welcome">
-        <div><h2>Welcome back, {displayName}!</h2><p>Zero Trust Security Operations Center</p></div>
-        <div className="soc-shield">♢</div>
-        <div className="soc-date"><span>▣ &nbsp; Nov 5, 2026</span><strong>18:45:32 (IST)</strong></div>
+      <section className="dashboard-heading">
+        <div><h2>SOC Dashboard</h2><p>Real-Time Security Overview</p></div>
+        <div className="dashboard-heading-actions"><button className="dashboard-refresh" onClick={load} disabled={loading}>↻ {loading ? 'Updating' : 'Refresh'}</button><span className="operational-pill"><i /> Operational</span></div>
       </section>
 
       <section className="dashboard-stat-grid">
-        <article className="dashboard-stat threat"><span className="stat-icon">⌁</span><div><small>Total Threats</small><strong>{threatCount.toLocaleString()}</strong><em>↑ 12.5%</em></div><span className="mini-sparkline" /></article>
-        <article className="dashboard-stat warning"><span className="stat-icon">!</span><div><small>Active Threats</small><strong>{activeThreats}</strong><em>↑ 8.7%</em></div><span className="mini-sparkline" /></article>
-        <article className="dashboard-stat healthy"><span className="stat-icon">✓</span><div><small>Blocked Attacks</small><strong>{blockedAttacks.toLocaleString()}</strong><em>↑ 14.2%</em></div><span className="mini-sparkline" /></article>
-        <article className="dashboard-stat users"><span className="stat-icon">♟</span><div><small>System Health</small><strong>{health}%</strong><em>↑ 0.1%</em></div><span className="mini-sparkline" /></article>
+        <article className="dashboard-stat threat"><span className="stat-icon">!</span><div><small>Total Threats</small><strong>{denied.toLocaleString()}</strong><em>↑ {metrics?.denial_percentage?.toFixed(0) ?? 0}%</em></div><span className="mini-sparkline" /></article>
+        <article className="dashboard-stat warning"><span className="stat-icon">▲</span><div><small>Active Threats</small><strong>{denied.toLocaleString()}</strong><em>↑ {Math.min(99, Math.max(1, Math.round(metrics?.denial_percentage ?? 0)))}%</em></div><span className="mini-sparkline" /></article>
+        <article className="dashboard-stat healthy"><span className="stat-icon">♥</span><div><small>System Health</small><strong>{health}%</strong><em>↑ {health >= 95 ? 2 : 1}%</em></div><span className="mini-sparkline" /></article>
+        <article className="dashboard-stat users"><span className="stat-icon">●</span><div><small>Total Users</small><strong>{(metrics?.users_total ?? 0).toLocaleString()}</strong><em>↑ {metrics?.users_active ?? 0}</em></div><span className="mini-sparkline" /></article>
       </section>
 
       <section className="dashboard-main-grid">
         <article className="dashboard-card activity-card">
-          <div className="dashboard-card-heading"><h3>▥ &nbsp;Threat Activity Overview</h3><button className="range-select">Last 24 Hours⌄</button></div>
-          <div className="activity-legend"><span className="blocked">● Blocked</span><span className="detected">● Allowed</span><span className="suspicious">● Suspicious</span></div>
+          <div className="dashboard-card-heading"><h3>⌁ &nbsp;Threat Activity</h3><div className="range-tabs"><button className="active">24h</button><button>7d</button><button>30d</button></div></div>
+          <div className="activity-legend"><span className="detected">● Detected</span><span className="blocked">● Blocked</span></div>
           <div className="activity-chart">
-            <div className="chart-y"><span>1,000</span><span>750</span><span>500</span><span>250</span><span>0</span></div>
+            <div className="chart-y"><span>150</span><span>100</span><span>50</span><span>0</span></div>
             <svg viewBox="0 0 640 160" preserveAspectRatio="none" aria-label="Threat activity chart">
-              <path className="chart-grid-line" d="M0 10H640M0 45H640M0 80H640M0 115H640M0 150H640M0 10V150M106 10V150M213 10V150M320 10V150M426 10V150M533 10V150M640 10V150" />
-              <path className="activity-line blocked-line" d="M0 79 C26 69 36 66 53 73 S82 88 106 76 S136 76 160 52 S190 66 213 54 S239 30 266 42 S292 61 320 49 S347 31 373 38 S398 63 426 42 S453 27 480 36 S505 56 533 43 S558 17 586 28 S618 56 640 37" />
-              <path className="activity-line detected-line" d="M0 102 C25 95 35 92 53 99 S82 113 106 102 S135 100 160 83 S190 96 213 84 S241 58 266 72 S293 89 320 76 S347 59 373 66 S399 89 426 70 S452 58 480 66 S505 84 533 73 S558 48 586 58 S618 85 640 68" />
-              <path className="activity-line suspicious-line" d="M0 132 C22 120 37 124 53 129 S82 140 106 130 S137 129 160 119 S191 134 213 123 S240 109 266 118 S291 129 320 120 S349 109 373 116 S399 133 426 121 S453 116 480 123 S507 139 533 130 S559 108 586 117 S616 130 640 123" />
+              <path className="chart-grid-line" d="M0 10H640M0 57H640M0 105H640M0 153H640M0 10V153M106 10V153M213 10V153M320 10V153M426 10V153M533 10V153M640 10V153" />
+              <path className="activity-line detected-line" d="M0 64 L53 83 L106 95 L160 72 L213 41 L266 52 L320 34 L373 53 L426 22 L480 40 L533 66 L586 29 L640 16" />
+              <path className="activity-line blocked-line" d="M0 88 L53 105 L106 113 L160 94 L213 72 L266 81 L320 66 L373 80 L426 63 L480 76 L533 98 L586 71 L640 63" />
             </svg>
-            <div className="chart-x"><span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span></div>
+            <div className="chart-x"><span>12AM</span><span>4AM</span><span>8AM</span><span>12PM</span><span>4PM</span><span>8PM</span><span>12AM</span></div>
           </div>
         </article>
 
         <article className="dashboard-card map-card">
-          <div className="dashboard-card-heading"><h3>♣ &nbsp;Global Threat Map</h3><button className="card-link" onClick={() => navigate('/network-map')}>⛶</button></div>
-          <div className="threat-map"><div className="map-land">◢ ◣ ◥ ◤</div><i className="map-point p1" /><i className="map-point p2" /><i className="map-point p3" /><i className="map-point p4" /><i className="map-point p5" /><i className="map-point p6" /><div className="map-tooltip"><b>Russia</b><span>Attacks: <em>142</em></span><span>Risk: High</span></div></div>
+          <div className="dashboard-card-heading"><h3>⊕ &nbsp;Threat Map</h3><button className="card-link" onClick={() => navigate('/network-map')}>View map →</button></div>
+          <div className="threat-map"><div className="map-land">◢ ◣ ◥ ◤</div><i className="map-point p1" /><i className="map-point p2" /><i className="map-point p3" /><i className="map-point p4" /><i className="map-point p5" /><i className="map-point p6" /></div>
+          <div className="map-legend"><span className="critical">● Critical <b>{denied}</b></span><span className="high">● High <b>{Math.round(denied * .7)}</b></span><span className="medium">● Medium <b>{Math.round(total * .1)}</b></span><span className="low">● Low <b>{allowed}</b></span></div>
         </article>
       </section>
 
       <section className="dashboard-bottom-grid">
         <article className="dashboard-card events-card">
-          <div className="dashboard-card-heading"><h3>⬟ &nbsp;Recent Threats</h3><button className="card-link" onClick={() => navigate('/audit-logs')}>View All →</button></div>
+          <div className="dashboard-card-heading"><h3>☷ &nbsp;Recent Security Events</h3><button className="card-link" onClick={() => navigate('/audit-logs')}>View All →</button></div>
           <div className="event-table">
-            <div className="event-row event-head"><span>Time</span><span>IP Address</span><span>Threat Type</span><span>Severity</span><span>Action</span></div>
-            {(events.length ? events.slice(0, 5) : [
-              { timestamp: new Date().toISOString(), actor: '185.199.110.45', event_type: 'SQL Injection', result: 'deny' },
-              { timestamp: new Date().toISOString(), actor: '103.21.45.67', event_type: 'Brute Force', result: 'deny' },
-              { timestamp: new Date().toISOString(), actor: '45.77.32.18', event_type: 'DDoS Attack', result: 'deny' },
-              { timestamp: new Date().toISOString(), actor: '192.168.1.101', event_type: 'Malware', result: 'allow' },
-              { timestamp: new Date().toISOString(), actor: '91.203.67.89', event_type: 'Port Scan', result: 'allow' },
-            ]).map((event: any, index: number) => <div className="event-row" key={`${event.timestamp}-${index}`}><span>{time(event.timestamp)}</span><span>{event.actor ?? 'system'}</span><span>{event.event_type.replaceAll('_', ' ')}</span><span className={`result-pill ${eventClass(event.result)}`}>{index < 3 ? (index === 2 ? 'Critical' : 'High') : index === 3 ? 'Medium' : 'Low'}</span><span className={`result-pill ${eventClass(event.result)}`}>{event.result === 'allow' ? 'Blocked' : 'Blocked'}</span></div>)}
+            <div className="event-row event-head"><span>Time</span><span>Event</span><span>User</span><span>Result</span></div>
+            {events.slice(0, 5).map((event: any, index: number) => <div className="event-row" key={`${event.timestamp}-${index}`}><span>{time(event.timestamp)}</span><span><b className={`event-dot ${eventClass(event.result)}`} />{event.event_type.replaceAll('_', ' ')}</span><span>{event.actor ?? 'system'}</span><span className={`result-pill ${eventClass(event.result)}`}>{event.result}</span></div>)}
+            {!events.length && <div className="empty-dashboard-row">No recent security events.</div>}
           </div>
         </article>
 
         <article className="dashboard-card risk-card">
-          <div className="dashboard-card-heading"><h3>⬟ &nbsp;Security Posture</h3></div>
-          <div className="posture-content"><div className="risk-gauge"><div><strong>{health}%</strong><small>Overall Score</small></div></div><div className="risk-factors"><span>✓ &nbsp;Access Control</span><span>✓ &nbsp;Policy Enforcement</span><span>✓ &nbsp;Threat Detection</span><span>✓ &nbsp;Incident Response</span><span>✓ &nbsp;Audit Logging</span></div></div>
-          <div className="posture-spark" />
+          <div className="dashboard-card-heading"><h3>▣ &nbsp;Risk Overview</h3><button className="card-link" onClick={() => navigate('/risk-analysis')}>Details →</button></div>
+          <div className="risk-gauge"><div><strong>{Math.round(100 - health)}</strong><small>High Risk</small></div></div>
+          <div className="risk-factors"><span>▲ Multiple failed logins</span><span>▲ Suspicious location</span><span>▲ Unusual access pattern</span></div>
+          <button className="risk-action" onClick={() => navigate('/assistant')}>✦ &nbsp;Consider reviewing recent access attempts.</button>
         </article>
 
         <article className="dashboard-card access-card">
-          <div className="dashboard-card-heading"><h3>⚡ &nbsp;Quick Actions</h3></div>
-          <div className="quick-actions"><button onClick={() => navigate('/security-testing')}>▶ &nbsp; Run Security Test</button><button onClick={() => navigate('/reports')}>▥ &nbsp; View Reports</button><button onClick={() => navigate('/policies')}>⬟ &nbsp; Manage Policies</button><button onClick={() => navigate('/assistant')}>♟ &nbsp; Open AI Assistant</button></div>
+          <div className="dashboard-card-heading"><h3>⌁ &nbsp;Recent Access Activity</h3><button className="card-link" onClick={() => navigate('/audit-logs')}>View All →</button></div>
+          <div className="access-list">{events.slice(0, 5).map((event: any, index: number) => <button className="access-row" key={`${event.timestamp}-access-${index}`} onClick={() => navigate('/audit-logs')}><span className={`access-avatar ${eventClass(event.result)}`}>{(event.actor ?? 'S')[0].toUpperCase()}</span><span><b>{event.actor ?? 'System'} accessed {event.resource}</b><small>{date(event.timestamp)} · {event.action}</small></span><em>{event.result}</em></button>)}</div>
         </article>
       </section>
       {error && <div className="dashboard-inline-error">{error}</div>}
@@ -873,7 +846,7 @@ function PoliciesPage({ token }: { token: string }) {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [rules, setRules] = useState<PolicyRule[]>([])
+  const [rules, setRules] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -928,7 +901,7 @@ function PoliciesPage({ token }: { token: string }) {
     setEditingId(null)
   }
 
-  const editRule = (rule: PolicyRule) => {
+  const editRule = (rule: any) => {
     setRuleForm({
       name: rule.name,
       tenant: rule.tenant,
@@ -983,7 +956,7 @@ function PoliciesPage({ token }: { token: string }) {
     }
   }
 
-  const toggleRule = async (rule: PolicyRule) => {
+  const toggleRule = async (rule: any) => {
     try {
       setLoading(true)
       const payload = {
@@ -1028,12 +1001,9 @@ function PoliciesPage({ token }: { token: string }) {
           <h3>＋ &nbsp;{editingId ? 'Edit Policy' : 'Create New Policy'}</h3>
           {showForm ? <form onSubmit={saveRule} className="new-policy-form">
             <label>Policy Name *<input required placeholder="Enter policy name" value={ruleForm.name} onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })} /></label>
-            <label>Tenant<input placeholder="default" value={ruleForm.tenant} onChange={(e) => setRuleForm({ ...ruleForm, tenant: e.target.value })} /></label>
             <label>Effect *<select value={ruleForm.effect} onChange={(e) => setRuleForm({ ...ruleForm, effect: e.target.value })}><option value="allow">● Allow</option><option value="deny">● Deny</option></select></label>
-            <label>Identities<input placeholder="admin, analyst" value={ruleForm.identities} onChange={(e) => setRuleForm({ ...ruleForm, identities: e.target.value })} /></label>
-            <label>Resources<input placeholder="resources/sensitive" value={ruleForm.resources} onChange={(e) => setRuleForm({ ...ruleForm, resources: e.target.value })} /></label>
-            <label>Actions<input placeholder="read, write, manage" value={ruleForm.actions} onChange={(e) => setRuleForm({ ...ruleForm, actions: e.target.value })} /></label>
             <label>Conditions<input placeholder="device_trusted, mfa_passed" value={ruleForm.conditions} onChange={(e) => setRuleForm({ ...ruleForm, conditions: e.target.value })} /></label>
+            <label>Resources<input placeholder="resources/sensitive" value={ruleForm.resources} onChange={(e) => setRuleForm({ ...ruleForm, resources: e.target.value })} /></label>
             <label>Priority<input type="number" min={0} value={ruleForm.priority} onChange={(e) => setRuleForm({ ...ruleForm, priority: Number(e.target.value) })} /></label>
             <label>Description<textarea value={ruleForm.description} onChange={(e) => setRuleForm({ ...ruleForm, description: e.target.value })} /></label>
             <label className="policy-toggle"><input type="checkbox" checked={ruleForm.enabled} onChange={(e) => setRuleForm({ ...ruleForm, enabled: e.target.checked })} /> Enable Policy</label>
