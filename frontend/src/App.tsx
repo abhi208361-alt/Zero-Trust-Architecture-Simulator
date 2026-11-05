@@ -16,6 +16,9 @@ type User = {
   full_name: string
   role: string
   is_active: boolean
+  theme?: string
+  timezone?: string
+  notification_preferences?: string
 }
 
 type PolicyConfig = {
@@ -70,6 +73,15 @@ function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => getStoredUser())
   const [loadingUser, setLoadingUser] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
+
+  useEffect(() => {
+    const storedTheme = localStorage.getItem('zt-theme') ?? currentUser?.theme ?? 'system'
+    const resolved = storedTheme === 'system'
+      ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+      : storedTheme
+    document.documentElement.dataset.theme = resolved
+    document.documentElement.dataset.color = localStorage.getItem('zt-color') ?? 'blue'
+  }, [currentUser?.theme])
 
   useEffect(() => {
     if (token) {
@@ -1148,24 +1160,69 @@ function AuditLogsPage({ token }: { token: string }) {
   )
 }
 
-function NetworkMapPage() {
+type NetworkMapData = {
+  status: string
+  metrics: { total_devices: number; secure_devices: number; risk_devices: number; active_connections: number }
+  nodes: Array<{ id: string; label: string; subtitle: string; kind: string; status: string }>
+  threat_activity: Array<{ label: string; color: string; time: string }>
+  zones: Array<{ label: string; subtitle: string; score: number; kind: string }>
+}
+
+function NetworkMapPage({ token }: { token: string }) {
+  const [data, setData] = useState<NetworkMapData | null>(null)
+  const [error, setError] = useState('')
+
+  const load = async () => {
+    try {
+      setError('')
+      setData(await apiFetch<NetworkMapData>('/network/map', { method: 'GET' }, token))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Network map unavailable')
+    }
+  }
+
+  useEffect(() => { void load() }, [token])
+
+  if (!data) return <div className="page-card">{error || 'Loading network map…'}</div>
+  const metricCards = [
+    { label: 'Total Devices', value: data.metrics.total_devices, change: '5%', icon: '◎', kind: 'blue' },
+    { label: 'Secure Devices', value: data.metrics.secure_devices, change: '8%', icon: '✓', kind: 'green' },
+    { label: 'At Risk Devices', value: data.metrics.risk_devices, change: '0%', icon: '!', kind: 'amber' },
+    { label: 'Active Connections', value: data.metrics.active_connections, change: '12%', icon: '▦', kind: 'purple' },
+  ]
+  const node = (id: string) => data.nodes.find((item) => item.id === id)
+
   return (
-    <div className="page-card">
-      <h2>Network Map</h2>
-      <div className="network-diagram large">
-        <div className="node primary">Users</div>
-        <div className="node">Gateway</div>
-        <div className="node">Policy</div>
-        <div className="node">Analytics</div>
-        <div className="node">Identity</div>
-        <div className="node">Audit</div>
-      </div>
+    <div className="network-page">
+      <section className="network-heading"><div className="network-brand-mark">✣</div><div><h2>Network Map</h2><p>Real-time network topology and security status</p></div><span className="operational-pill"><i /> {data.status}</span><button className="tiny-button network-refresh" type="button" onClick={() => void load()}>↻ Refresh</button></section>
+      <section className="network-metrics">{metricCards.map((card) => <div className="network-metric" key={card.label}><span className={`metric-icon ${card.kind}`}>{card.icon}</span><div><small>{card.label}</small><strong>{card.value.toLocaleString()}</strong><em className={card.kind === 'amber' ? 'negative' : 'positive'}>↑ {card.change}</em></div><span className={`metric-spark ${card.kind}`} /></div>)}</section>
+      <section className="network-main-grid">
+        <article className="network-panel topology-panel"><div className="network-panel-header"><span>✣ &nbsp;Network Topology</span><span className="panel-actions"><i /> Live &nbsp; ↻ Refresh</span></div><div className="topology-canvas"><div className="map-grid" /><div className="topology-line line-horizontal" /><div className="topology-line line-vertical" /><div className="topology-node internet">{node('internet')?.label}<small>☁</small></div><div className="topology-node gateway"><small>♙</small><strong>Zero Trust<br />Gateway</strong></div><div className="topology-node firewall">{node('firewall')?.label}<small>▤</small></div><div className="topology-children">{['employees', 'servers', 'databases', 'guests'].map((id) => { const item = node(id); return <div className={`topology-child ${item?.kind}`} key={id}><span>{id === 'employees' ? '▣' : id === 'servers' ? '▤' : id === 'databases' ? '◉' : '♟'}</span><strong>{item?.label}</strong><small>{item?.subtitle}</small></div> })}</div><span className="connection-check check-one">✓</span><span className="connection-check check-two">✓</span><span className="connection-check check-three">✓</span></div></article>
+        <aside className="network-side"><article className="network-panel threat-panel"><div className="network-panel-header"><span>▥ &nbsp;Threat Activity</span><button type="button">View All →</button></div>{data.threat_activity.map((event) => <div className="threat-row" key={event.label}><i className={event.color} /><strong>{event.label}</strong><time>{event.time}</time></div>)}</article><article className="network-panel legend-panel"><div className="network-panel-header"><span>▤ &nbsp;Network Legend</span></div><div className="legend-row"><i className="legend-gateway" />Zero Trust Gateway</div><div className="legend-row"><i className="legend-firewall" />Firewall</div><div className="legend-row"><i className="legend-network" />Trusted Network</div><div className="legend-row"><i className="legend-resource" />Protected Resources</div><div className="legend-row"><i className="legend-guest" />Restricted Access</div></article></aside>
+      </section>
+      <section className="network-bottom-grid"><article className="network-panel chart-panel"><div className="network-panel-header"><span>▦ &nbsp;Traffic Overview</span><span className="chart-legend"><i className="allowed" /> Allowed <i className="blocked" /> Blocked <i className="monitored" /> Monitored</span></div><div className="traffic-chart"><div className="chart-y"><span>1,000</span><span>500</span><span>0</span></div><svg viewBox="0 0 640 130" preserveAspectRatio="none"><path className="chart-line allowed-line" d="M0 49 L45 44 L90 48 L135 40 L180 45 L225 35 L270 42 L315 31 L360 37 L405 26 L450 33 L495 23 L540 38 L585 29 L640 34" /><path className="chart-line blocked-line" d="M0 94 L45 90 L90 96 L135 87 L180 92 L225 89 L270 95 L315 88 L360 94 L405 84 L450 91 L495 86 L540 93 L585 87 L640 91" /><path className="chart-line monitored-line" d="M0 108 L45 105 L90 107 L135 103 L180 107 L225 102 L270 105 L315 101 L360 104 L405 98 L450 102 L495 96 L540 103 L585 97 L640 100" /></svg><div className="chart-x"><span>12AM</span><span>4AM</span><span>8AM</span><span>12PM</span><span>4PM</span><span>8PM</span><span>12AM</span></div></div></article><article className="network-panel zones-panel"><div className="network-panel-header"><span>◉ &nbsp;Security Zones</span><button type="button">View Details →</button></div><div className="zone-list">{data.zones.map((zone) => <div className={`zone-card ${zone.kind}`} key={zone.label}><span>{zone.kind === 'internal' ? '✓' : zone.kind === 'dmz' ? '⌁' : zone.kind === 'guest' ? '♣' : '◎'}</span><strong>{zone.label}</strong><small>{zone.subtitle}</small><b>({zone.score}%)</b></div>)}</div></article></section>
+      {error && <div className="error-banner">{error}</div>}
     </div>
   )
 }
 
 function ReportsPage({ token }: { token: string }) {
   const [reportStatus, setReportStatus] = useState('')
+  const [summary, setSummary] = useState<{
+    total_threats: number
+    blocked_threats: number
+    critical_events: number
+    active_users: number
+    recent_reports: Array<{ name: string; generated_on: string; status: string }>
+  } | null>(null)
+  const [reportType, setReportType] = useState('Security Report')
+  const [range, setRange] = useState('Last 30 Days')
+
+  useEffect(() => {
+    void apiFetch('/reports/summary', { method: 'GET' }, token)
+      .then(setSummary)
+      .catch((error) => setReportStatus(error instanceof Error ? error.message : 'Report summary unavailable'))
+  }, [token])
 
   const downloadCsv = async () => {
     try {
@@ -1205,40 +1262,32 @@ function ReportsPage({ token }: { token: string }) {
     setReportStatus(message)
   }
 
+  const reportCards = [
+    { title: 'Security Report', subtitle: '(Overview)', icon: '✓', kind: 'blue' },
+    { title: 'Activity Report', subtitle: '(User Activity)', icon: '●', kind: 'indigo' },
+    { title: 'Risk Report', subtitle: '(Risk Analysis)', icon: '!', kind: 'amber' },
+    { title: 'Compliance Report', subtitle: '(Regulatory)', icon: '⚖', kind: 'purple' },
+  ]
+  const formatDate = (value: string) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value))
+
   return (
-    <div className="page-card">
-      <h2>Reports</h2>
-
-      <div className="report-grid">
-        <label>
-          Report Type
-          <select>
-            <option>Access Summary</option>
-            <option>Security Review</option>
-            <option>Risk Snapshot</option>
-          </select>
-        </label>
-
-        <label>
-          Start Date
-          <input type="date" />
-        </label>
-
-        <label>
-          End Date
-          <input type="date" />
-        </label>
-      </div>
-
-      <div className="toolbar">
-        <button className="primary-button" type="button" onClick={downloadCsv}>
-          Download CSV
-        </button>
-        <button className="ghost-button" type="button" onClick={downloadPdf}>
-          Download PDF
-        </button>
-      </div>
-
+    <div className="reports-page">
+      <section className="reports-heading"><div className="report-brand-mark">▣</div><div><h2>Reports</h2><p>Generate and view comprehensive security reports</p></div><span className="operational-pill"><i /> Operational</span></section>
+      <section className="report-type-tabs">{reportCards.map((card, index) => <button className={`report-type-tab ${index === 0 ? 'selected' : ''}`} type="button" key={card.title} onClick={() => setReportType(card.title)}><span className={`report-type-icon ${card.kind}`}>{card.icon}</span><strong>{card.title}<small>{card.subtitle}</small></strong></button>)}</section>
+      <section className="report-controls"><label>Time Range<select value={range} onChange={(event) => setRange(event.target.value)}><option>Last 30 Days</option><option>Last 7 Days</option><option>Last 90 Days</option></select></label><label>Format<select><option>PDF</option><option>CSV</option></select></label><button className="primary-button" type="button" onClick={downloadPdf}>▶ Generate Report</button><button className="ghost-button" type="button" onClick={downloadCsv}>⇩ Export CSV</button></section>
+      <section className="report-stats">{[
+        ['Total Threats', summary?.total_threats ?? 0, '↑ 12%', 'blue'],
+        ['Blocked Threats', summary?.blocked_threats ?? 0, '↑ 14%', 'green'],
+        ['Critical Events', summary?.critical_events ?? 0, '↑ 3%', 'amber'],
+        ['Active Users', summary?.active_users ?? 0, '↑ 8%', 'purple'],
+      ].map(([label, value, change, kind]) => <div className="report-stat" key={label as string}><span className={`report-stat-icon ${kind}`}>{kind === 'blue' ? '✓' : kind === 'green' ? '✓' : kind === 'amber' ? '!' : '♣'}</span><div><small>{label}</small><strong>{Number(value).toLocaleString()}</strong><em className={kind === 'amber' ? 'negative' : 'positive'}>{change}</em></div><span className={`report-spark ${kind}`} /></div>)}</section>
+      <section className="reports-dashboard-grid">
+        <article className="report-panel trends-panel"><div className="report-panel-header"><span>▥ &nbsp;Security Trends</span><div className="range-pills"><button type="button">7D</button><button className="active" type="button">30D</button><button type="button">90D</button></div></div><div className="report-chart"><div className="report-y"><span>8k</span><span>4k</span><span>0</span></div><svg viewBox="0 0 640 130" preserveAspectRatio="none"><path className="report-line threat" d="M0 49 L45 44 L90 48 L135 40 L180 45 L225 35 L270 42 L315 31 L360 37 L405 26 L450 33 L495 23 L540 38 L585 29 L640 34" /><path className="report-line blocked" d="M0 72 L45 67 L90 73 L135 65 L180 70 L225 62 L270 69 L315 60 L360 66 L405 57 L450 63 L495 54 L540 65 L585 57 L640 61" /><path className="report-line critical" d="M0 104 L45 103 L90 105 L135 102 L180 104 L225 101 L270 103 L315 100 L360 102 L405 98 L450 101 L495 97 L540 101 L585 98 L640 100" /></svg><div className="report-x"><span>Oct 6</span><span>Oct 10</span><span>Oct 14</span><span>Oct 18</span><span>Oct 22</span><span>Oct 26</span><span>Oct 30</span><span>Nov 3</span></div></div></article>
+        <article className="report-panel distribution-panel"><div className="report-panel-header"><span>◉ &nbsp;Threat Distribution</span></div><div className="donut-wrap"><div className="donut"><strong>{(summary?.total_threats ?? 0).toLocaleString()}</strong><small>Total Threats</small></div><div className="distribution-list"><span>● Malware <b>35%</b></span><span>● Suspicious <b>28%</b></span><span>● Policy <b>20%</b></span><span>● Other <b>17%</b></span></div></div></article>
+        <article className="report-panel sources-panel"><div className="report-panel-header"><span>⌖ &nbsp;Top Threat Sources</span><button type="button">View All →</button></div><div className="source-content"><div className="fake-map">✦　　◌　　✦<br />　◌　✦　　◌</div><div className="source-list"><span>🇺🇸 United States <b>32%</b></span><span>🇩🇪 Germany <b>24%</b></span><span>🇨🇳 China <b>20%</b></span><span>🇮🇳 India <b>14%</b></span><span>🌐 Others <b>10%</b></span></div></div></article>
+        <article className="report-panel recent-panel"><div className="report-panel-header"><span>▤ &nbsp;Recent Reports</span><button type="button">View All →</button></div>{(summary?.recent_reports ?? []).map((report, index) => <div className="recent-report" key={`${report.name}-${index}`}><span><strong>{reportType}</strong><small>{formatDate(report.generated_on)}</small></span><em>{report.status}</em><button type="button" onClick={downloadPdf}>↧</button></div>)}</article>
+        <article className="report-panel preview-panel"><div className="report-panel-header"><span>▤ &nbsp;Report Preview</span></div><div className="preview-document"><div className="preview-shield">♙</div><h3>Zero Trust<br />Security Report</h3><p>Comprehensive Security Overview</p><hr /><small>Report Period</small><strong>{range}</strong><div className="preview-city">▥ ▥ ▥ ▥ ▥</div></div></article>
+      </section>
       {reportStatus && <div className="success-banner">{reportStatus}</div>}
     </div>
   )
@@ -1259,28 +1308,30 @@ function RiskAnalysisPage({ token }: { token: string }) {
     load()
   }, [token])
 
-  return (
-    <div className="page-card">
-      <h2>Risk Analysis</h2>
+  const metrics = data?.metrics ?? { total_risk_score: 78, high_risk_assets: 12, medium_risk_assets: 27, low_risk_assets: 49 }
+  const factors = data?.risk_factors ?? []
+  const assets = data?.asset_types ?? []
+  const events = data?.recent_events ?? []
+  const formatTime = (value: string) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
 
-      <div className="stats-grid">
-        <div>
-          <span>Total Risk</span>
-          <strong>{data?.overall_risk_score ?? 72}</strong>
-        </div>
-        <div>
-          <span>Critical</span>
-          <strong>{data?.critical_count ?? 8}</strong>
-        </div>
-        <div>
-          <span>High</span>
-          <strong>{data?.high_count ?? 12}</strong>
-        </div>
-        <div>
-          <span>Low</span>
-          <strong>{data?.low_count ?? 24}</strong>
-        </div>
-      </div>
+  return (
+    <div className="risk-page">
+      <section className="risk-heading"><div className="risk-brand-mark">⚠</div><div><h2>Risk Analysis</h2><p>Analyze security risks and identify potential threats.</p></div><select className="risk-range"><option>Last 30 Days</option><option>Last 7 Days</option><option>Last 90 Days</option></select><span className="operational-pill"><i /> Operational</span></section>
+      <section className="risk-stats">{[
+        ['Total Risk Score', `${metrics.total_risk_score} / 100`, '↑ 12%', 'red', '⚠'],
+        ['High Risk Assets', metrics.high_risk_assets, '↑ 33%', 'orange', '!'],
+        ['Medium Risk Assets', metrics.medium_risk_assets, '↓ 7%', 'blue', '🛡'],
+        ['Low Risk Assets', metrics.low_risk_assets, '↑ 5%', 'green', '✓'],
+      ].map(([label, value, change, kind, icon]) => <div className="risk-stat" key={label as string}><span className={`risk-stat-icon ${kind}`}>{icon}</span><div><small>{label}</small><strong>{value}</strong><em className={kind === 'blue' || kind === 'green' ? 'positive' : 'negative'}>{change}</em></div><span className={`risk-spark ${kind}`} /></div>)}</section>
+      <section className="risk-grid">
+        <article className="risk-panel risk-trend"><div className="risk-panel-header"><span>▥ &nbsp;Risk Trend</span><span className="risk-legend"><i className="risk-blue" /> Risk Score &nbsp; <i className="risk-orange" /> High Risk Assets &nbsp; <i className="risk-green" /> Security Events</span></div><div className="risk-chart"><div className="risk-chart-y"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><svg viewBox="0 0 640 150" preserveAspectRatio="none"><path className="risk-line risk-blue-line" d="M0 50 L45 55 L90 43 L135 48 L180 37 L225 42 L270 34 L315 38 L360 29 L405 34 L450 25 L495 31 L540 22 L585 28 L640 24" /><path className="risk-line risk-orange-line" d="M0 85 L45 92 L90 78 L135 86 L180 72 L225 80 L270 68 L315 75 L360 64 L405 71 L450 59 L495 68 L540 58 L585 64 L640 60" /><path className="risk-line risk-green-line" d="M0 112 L45 110 L90 114 L135 108 L180 112 L225 106 L270 110 L315 104 L360 108 L405 101 L450 105 L495 99 L540 104 L585 98 L640 101" /></svg><div className="risk-chart-x"><span>Oct 6</span><span>Oct 10</span><span>Oct 14</span><span>Oct 18</span><span>Oct 22</span><span>Oct 26</span><span>Oct 30</span><span>Nov 3</span></div></div></article>
+        <article className="risk-panel risk-distribution"><div className="risk-panel-header"><span>◉ &nbsp;Risk Distribution</span></div><div className="risk-donut-wrap"><div className="risk-donut"><strong>{metrics.total_risk_score}</strong><small>Total Risk</small></div><div className="risk-distribution-list"><span>● Critical <b>18%</b></span><span>● High <b>32%</b></span><span>● Medium <b>34%</b></span><span>● Low <b>16%</b></span></div></div></article>
+        <article className="risk-panel risk-factors"><div className="risk-panel-header"><span>☷ &nbsp;Top Risk Factors</span><button type="button">View All →</button></div>{factors.map((factor: any) => <div className="factor-row" key={factor.rank}><b>{factor.rank}</b><strong>{factor.name}</strong><span>{factor.score}%</span><em className={factor.severity.toLowerCase()}>{factor.severity}</em></div>)}</article>
+        <article className="risk-panel heatmap-panel"><div className="risk-panel-header"><span>⌖ &nbsp;Risk Heatmap</span></div><div className="heatmap-content"><div className="heatmap-map">✦　　◉　　✦<br />　◉　✦　　◉</div><div className="heatmap-legend"><span>● Critical</span><span>● High</span><span>● Medium</span><span>● Low</span></div></div></article>
+        <article className="risk-panel asset-panel"><div className="risk-panel-header"><span>▥ &nbsp;Risk by Asset Type</span></div><div className="asset-chart">{assets.map((asset: any) => <div className="asset-bar-group" key={asset.name}><div className="asset-bars"><i style={{ height: `${asset.critical * 2}px` }} /><i style={{ height: `${asset.high * 2}px` }} /><i style={{ height: `${asset.medium * 2}px` }} /></div><small>{asset.name}</small></div>)}</div></article>
+        <article className="risk-panel insights-panel"><div className="risk-panel-header"><span>◉ &nbsp;AI Risk Insights</span></div><div className="insight-body"><div className="robot">▣</div><div><strong>Suspicious Login Pattern Detected</strong><p>Multiple failed login attempts from unusual location (Russia).</p><b>Risk Level: <em>High</em></b><small>Recommendation: Enable MFA and review logs.</small><button type="button">View Details →</button></div></div></article>
+      </section>
+      <section className="risk-panel events-panel"><div className="risk-panel-header"><span>▤ &nbsp;Recent Risk Events</span><div className="event-controls"><input placeholder="⌕ Search events…" /><select><option>All Events</option></select><button type="button">View All →</button></div></div><table className="risk-events-table"><thead><tr><th>Time</th><th>Event</th><th>Risk</th><th>Asset</th><th>Source IP</th><th>Status</th><th>Action</th></tr></thead><tbody>{events.map((event: any, index: number) => <tr key={`${event.time}-${index}`}><td>{formatTime(event.time)}</td><td>{event.event}</td><td><span className="event-risk">{event.risk}</span></td><td>{event.asset}</td><td>185.19.110.153</td><td><span className="event-status">{event.status}</span></td><td><button type="button">View</button></td></tr>)}</tbody></table></section>
     </div>
   )
 }
@@ -1332,28 +1383,56 @@ function SecurityTestingPage({ token }: { token: string }) {
 }
 
 function InvestigationsPage({ token }: { token: string }) {
-  return (
-    <div className="page-card">
-      <h2>Security Investigations</h2>
+  const [data, setData] = useState<any>(null)
+  const [status, setStatus] = useState('All Statuses')
+  const [search, setSearch] = useState('')
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [message, setMessage] = useState('')
 
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Severity</th>
-            <th>Owner</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Sample investigation</td>
-            <td>High</td>
-            <td>Admin</td>
-            <td><span className="status danger">Open</span></td>
-          </tr>
-        </tbody>
-      </table>
+  const load = async () => {
+    const query = new URLSearchParams({ status })
+    if (search.trim()) query.set('search', search.trim())
+    try {
+      const result = await apiFetch(`/investigations?${query}`, { method: 'GET' }, token)
+      setData(result)
+      setSelectedId(result.incidents?.[0]?.id ?? null)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Investigation data unavailable')
+    }
+  }
+
+  useEffect(() => { void load() }, [token, status, search])
+
+  const runAction = async (action: string) => {
+    if (!selectedId) return
+    try {
+      const result = await apiFetch(`/investigations/${selectedId}/actions`, { method: 'POST', body: JSON.stringify({ action }) }, token)
+      setMessage(result.message)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Investigation action failed')
+    }
+  }
+
+  const metrics = data?.metrics ?? { total_incidents: 24, investigating: 8, resolved: 14, avg_resolution_minutes: 18 }
+  const selected = data?.incidents?.find((item: any) => item.id === selectedId) ?? data?.selected
+  const formatTime = (value: string) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+
+  return (
+    <div className="investigation-page">
+      <section className="investigation-heading"><div className="investigation-brand-mark">◈</div><div><h2>Security Investigation</h2><p>Investigate and analyze security incidents in detail</p></div><span className="operational-pill"><i /> Operational</span></section>
+      <section className="investigation-stats">{[
+        ['Total Incidents', metrics.total_incidents, '↑ 12%', 'red', '!'],
+        ['Investigating', metrics.investigating, '↑ 33%', 'orange', '⚠'],
+        ['Resolved', metrics.resolved, '↑ 7%', 'green', '✓'],
+        ['Avg Resolution Time', `${metrics.avg_resolution_minutes}m`, '↓ 22%', 'purple', '◷'],
+      ].map(([label, value, change, kind, icon]) => <div className="investigation-stat" key={label as string}><span className={`investigation-stat-icon ${kind}`}>{icon}</span><div><small>{label}</small><strong>{value}</strong><em className={kind === 'green' || kind === 'purple' ? 'positive' : 'negative'}>{change}</em></div><span className={`investigation-spark ${kind}`} /></div>)}</section>
+      <section className="investigation-controls"><select><option>Last 7 Days</option><option>Last 30 Days</option></select><select><option>Event Type: All Events</option></select><select><option>Severity: All Severities</option></select><select value={status} onChange={(event) => setStatus(event.target.value)}><option>All Statuses</option><option>Investigating</option><option>Resolved</option></select><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="⌕ Search incidents…" /><button className="primary-button" type="button" onClick={() => void runAction('generate_report')}>⇩ Export Report</button><button className="ghost-button" type="button" onClick={() => void load()}>↻ Refresh</button></section>
+      <section className="investigation-main-grid">
+        <article className="investigation-panel incident-list-panel"><div className="investigation-panel-header"><span>▤ &nbsp;Security Incidents</span><span>Showing 1–{data?.incidents?.length ?? 0} of {data?.incidents?.length ?? 0}</span></div><table className="incident-table"><thead><tr><th>Time</th><th>Event</th><th>Severity</th><th>Status</th><th>Source IP</th><th>Actions</th></tr></thead><tbody>{(data?.incidents ?? []).map((incident: any) => <tr key={incident.id} className={selectedId === incident.id ? 'selected-incident' : ''} onClick={() => setSelectedId(incident.id)}><td>{formatTime(incident.time)}</td><td>◉ &nbsp;{incident.event}</td><td><span className={`incident-severity ${incident.severity.toLowerCase()}`}>{incident.severity}</span></td><td><span className={`incident-status ${incident.status.toLowerCase()}`}>{incident.status}</span></td><td>{incident.source_ip}</td><td><button type="button" onClick={() => setSelectedId(incident.id)}>View</button></td></tr>)}</tbody></table></article>
+        <article className="investigation-panel incident-detail-panel"><div className="investigation-panel-header"><span>⚠ &nbsp;Incident Details</span><button type="button">Close</button></div>{selected ? <div className="incident-detail"><h3>⚠ &nbsp;{selected.event} <span className="incident-severity critical">{selected.severity}</span></h3><p>Unusual login attempt detected from an unusual geographic location.</p><div className="detail-meta"><span>Time<strong>{formatTime(selected.time)}</strong></span><span>Source IP<strong>{selected.source_ip}</strong></span><span>Location<strong>Russia</strong></span><span>User<strong>admin</strong></span></div><div className="detail-tabs"><button type="button">Details</button><button type="button">Evidence</button><button type="button">Related Events</button><button type="button">Actions</button></div><dl><dt>Event Type:</dt><dd>{selected.event}</dd><dt>Risk Score:</dt><dd className="red-text">92/100</dd><dt>Description:</dt><dd>{selected.event}</dd><dt>Firewall Action:</dt><dd><span className="incident-severity critical">Blocked</span></dd><dt>Recommended Action:</dt><dd>Review access source and verify identity</dd></dl><div className="detail-map">◎</div></div> : <div className="empty-investigation">Select an incident to inspect details.</div>}</article>
+      </section>
+      <section className="investigation-bottom-grid"><article className="investigation-panel timeline-panel"><div className="investigation-panel-header"><span>▥ &nbsp;Attack Timeline</span><span>🔵 Events　🔴 Critical</span></div><svg viewBox="0 0 640 120" preserveAspectRatio="none"><path className="timeline-line events" d="M0 70 L80 60 L160 63 L240 52 L320 59 L400 42 L480 53 L560 34 L640 45" /><path className="timeline-line critical-line" d="M0 92 L80 91 L160 92 L240 88 L320 92 L400 80 L480 89 L560 75 L640 82" /></svg><div className="timeline-labels"><span>Oct 29</span><span>Oct 30</span><span>Oct 31</span><span>Nov 1</span><span>Nov 2</span><span>Nov 3</span><span>Nov 4</span></div></article><article className="investigation-panel sources-analysis"><div className="investigation-panel-header"><span>◉ &nbsp;Threat Source Analysis</span></div><div className="source-donut-wrap"><div className="source-donut"><strong>{metrics.total_incidents}</strong><small>Total Events</small></div><div>{(data?.threat_sources ?? []).map((source: any) => <div className="source-analysis-row" key={source.label}><i className={source.color} />{source.label}<b>{source.value}%</b></div>)}</div></div></article><article className="investigation-panel actions-panel"><div className="investigation-panel-header"><span>☷ &nbsp;Investigation Actions</span></div>{[['block_source','Block Source IP'],['review_activity','Review User Activity'],['check_related','Check Related Systems'],['generate_report','Generate Report']].map(([action, label]) => <button className="investigation-action" type="button" key={action} onClick={() => void runAction(action)}><span>✓</span>{label}</button>)}<button className="primary-button start-investigation" type="button" onClick={() => void runAction('start_investigation')}>▶ Start Investigation →</button></article><article className="investigation-panel under-investigation"><div className="under-icon">♢</div><strong>Threat Under Investigation</strong><small>Continue monitoring for<br />related activities</small></article></section>
+      {message && <div className="success-banner">{message}</div>}
     </div>
   )
 }
@@ -1362,10 +1441,11 @@ function AssistantPage({ token }: { token: string }) {
   const [messages, setMessages] = useState<any[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [status, setStatus] = useState('')
 
-  const send = async () => {
-    if (!input.trim() || loading) return
-    const message = input.trim()
+  const send = async (prompt = input) => {
+    if (!prompt.trim() || loading) return
+    const message = prompt.trim()
     setInput('')
     setMessages((current) => [...current, { id: `${Date.now()}-user`, role: 'user', content: message }])
     setLoading(true)
@@ -1379,73 +1459,104 @@ function AssistantPage({ token }: { token: string }) {
     }
   }
 
+  const quickActions = [
+    ['Check Threats', 'Show me current security threats'],
+    ['Analyze Risks', 'Analyze the current risk posture'],
+    ['Generate Report', 'How do I generate a security report?'],
+    ['View Network Map', 'Explain the network map'],
+    ['Review Policies', 'Explain the active access policies'],
+    ['Run Security Test', 'What security tests are available?'],
+  ]
+  const suggested = ['Show recent threats', 'Analyze risk trends', 'Check policy status', 'Explain zero trust', 'Generate security report', 'View network activity']
+
   return (
-    <div className="page-card">
-      <h2>AI Assistant</h2>
-
-      <div className="chat-box">
-        {messages.length === 0 && (
-          <div className="empty-chat">
-            Ask a security question about access policy, audit logs, or zero-trust posture.
+    <div className="assistant-page">
+      <section className="assistant-heading"><div className="assistant-brand-mark">♙</div><div><h2>AI Assistant</h2><p>Your intelligent cybersecurity assistant</p></div><span className="operational-pill"><i /> Operational</span></section>
+      <section className="assistant-layout">
+        <article className="assistant-chat-panel">
+          <div className="assistant-panel-header"><span>♙ &nbsp;Chat with AI Security Assistant</span><span className="assistant-online"><i /> Online</span></div>
+          <div className="assistant-messages">
+            {messages.length === 0 && <div className="assistant-message-row"><div className="assistant-avatar">♙</div><div className="assistant-bubble"><p>Hello Abhilash! 👋</p><p>I’m your Zero Trust Security Assistant.<br />I can help you with threat analysis, security recommendations, policy management, and more.</p><p>What would you like to know?</p><small>10:45 AM</small></div></div>}
+            {messages.map((msg) => <div key={msg.id} className={`assistant-message-row ${msg.role === 'user' ? 'user-message' : ''}`}><div className="assistant-avatar">{msg.role === 'user' ? '●' : '♙'}</div><div className={`assistant-bubble ${msg.role === 'user' ? 'user-bubble' : ''}`}><p>{msg.content}</p><small>{msg.role === 'user' ? '10:46 AM ✓✓' : '10:46 AM'}</small></div></div>)}
           </div>
-        )}
-        {messages.map((msg) => (
-          <div key={msg.id} className={`chat-row ${msg.role === 'assistant' ? 'assistant' : 'user'}`}>
-            <div className="chat-bubble">
-              {msg.content}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="chat-input-row">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask the AI assistant..."
-          onKeyDown={(e) => { if (e.key === 'Enter') void send() }}
-        />
-        <button className="primary-button" type="button" onClick={() => void send()} disabled={loading}>
-          {loading ? 'Sending...' : 'Send'}
-        </button>
-      </div>
+          <div className="assistant-input-row"><span>♧</span><input value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void send() }} placeholder="Ask anything about security…" /><button type="button" onClick={() => void send()} disabled={loading}>➤</button></div>
+          <div className="suggested-prompts"><strong>✦ Suggested Prompts</strong><div>{suggested.map((prompt) => <button type="button" key={prompt} onClick={() => void send(prompt)}>{prompt} ↗</button>)}</div></div>
+        </article>
+        <aside className="assistant-sidebar">
+          <article className="assistant-side-panel"><div className="assistant-panel-header"><span>ϟ &nbsp;Quick Actions</span></div><div className="quick-action-grid">{quickActions.map(([label, prompt], index) => <button type="button" key={label} onClick={() => void send(prompt)}><span className={`quick-icon q-${index}`}>{index === 0 ? '✓' : index === 1 ? '▥' : index === 2 ? '▤' : index === 3 ? '⌖' : index === 4 ? '✓' : '↻'}</span>{label}</button>)}</div></article>
+          <article className="assistant-side-panel insights-card"><div className="assistant-panel-header"><span>💡 &nbsp;Security Insights</span><button type="button">View All →</button></div><div className="system-secure"><span>✓</span><strong>System Status: Secure</strong><small>No critical issues detected. Your system is operating normally.</small></div><div className="insight-row"><i className="red-dot" />Last Threat Detected <b>2 hours ago</b></div><div className="insight-row"><i className="orange-dot" />Risk Score <b>78/100</b></div><div className="insight-row"><i className="blue-dot" />Active Policies <b>24</b></div></article>
+          <article className="assistant-side-panel recent-queries"><div className="assistant-panel-header"><span>◷ &nbsp;Recent Queries</span><button type="button">View All →</button></div>{['Show me current security threats', 'What is my risk score?', 'Generate weekly report'].map((query, index) => <button type="button" key={query} onClick={() => void send(query)}><span>▣</span>{query}<small>{index * 4 + 2} min ago</small></button>)}</article>
+        </aside>
+      </section>
+      {status && <div className="success-banner">{status}</div>}
     </div>
   )
 }
 
 function DocumentationPage({ token }: { token: string }) {
   const [page, setPage] = useState<any>(null)
+  const [activeSection, setActiveSection] = useState('overview')
+  const [status, setStatus] = useState('')
   useEffect(() => {
     void apiFetch('/documentation?slug=overview', { method: 'GET' }, token).then(setPage).catch(() => undefined)
   }, [token])
+
+  const download = async (path: string, filename: string) => {
+    try {
+      const response = await fetch(`${API}${path}`, { headers: { Authorization: 'Bearer ' + token } })
+      if (!response.ok) throw new Error('Download unavailable')
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.click()
+      URL.revokeObjectURL(url)
+      setStatus(`${filename} downloaded.`)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Download failed')
+    }
+  }
+
+  const currentSection = page?.sections?.find((section: any) => section.id === activeSection) ?? page?.sections?.[0]
+
   return (
-    <div className="page-card">
-      <h2>Documentation</h2>
-      <div className="doc-list">
-        <div className="doc-item">
-          <h3>Overview</h3>
-          <p>{page?.content ?? 'Loading documentation...'}</p>
-        </div>
-        <div className="doc-item">
-          <h3>Authentication</h3>
-          <p>Authentication is enforced using JWT tokens and RBAC checks.</p>
-        </div>
-        <div className="doc-item">
-          <h3>Policies</h3>
-          <p>Access is governed by RBAC and device + risk policy controls.</p>
-        </div>
-      </div>
+    <div className="documentation-page">
+      <section className="documentation-heading"><div className="documentation-brand-mark">▣</div><div><h2>Documentation</h2><p>Complete guides and resources for Zero Trust Architecture Simulator</p></div><span className="operational-pill"><i /> {page?.system_info?.status ?? 'Operational'}</span></section>
+      <nav className="documentation-tabs">{['Getting Started', 'User Guide', 'Administrator Guide', 'API Reference', 'Tutorials', 'FAQ', 'Release Notes'].map((tab, index) => <button type="button" className={index === 0 ? 'active' : ''} key={tab} onClick={() => index === 1 ? void download('/documentation/download/user-guide', 'zero-trust-user-guide.md') : index === 3 ? window.open('/docs', '_blank') : undefined}>{index === 0 ? '⌂' : index === 1 ? '♟' : index === 2 ? '♙' : index === 3 ? '</>' : index === 4 ? '▶' : '?' } &nbsp;{tab}</button>)}</nav>
+      <section className="documentation-layout">
+        <aside className="documentation-sidebar"><h3>Documentation Sections</h3>{(page?.sections ?? []).map((section: any, index: number) => <div key={section.id} className="documentation-section-nav"><button type="button" className={activeSection === section.id ? 'selected' : ''} onClick={() => setActiveSection(section.id)}>{index === 0 ? '⌂' : index === 1 ? '⚑' : index === 2 ? '★' : index === 3 ? '⚙' : '</>'} &nbsp;{section.title}<span>{index > 0 ? '⌄' : ''}</span></button>{activeSection === section.id && section.items?.map((item: string) => <a href={`#${section.id}-${item}`} key={item}>{item}</a>)}</div>)}</aside>
+        <main className="documentation-main">
+          <div className="documentation-hero"><div className="hero-shield">✓</div><div><h2>Zero Trust Architecture<br />Simulator</h2><strong>Build · Monitor · Secure</strong></div><div className="hero-laptop">▰</div></div>
+          <article className="documentation-content-card"><div className="documentation-card-header">ⓘ &nbsp;{currentSection?.title ?? 'Overview'}</div><div className="documentation-card-body"><p>{currentSection?.content ?? page?.content ?? 'Loading documentation...'}</p>{currentSection?.id === 'overview' && <><h3>★ &nbsp;Key Features</h3><div className="feature-grid"><span>✓ &nbsp;Real-time Threat Detection</span><span>✓ &nbsp;Risk Analysis & Security Insights</span><span>✓ &nbsp;Zero Trust Policy Management</span><span>✓ &nbsp;Detailed Audit Logs</span><span>✓ &nbsp;Interactive Network Map</span><span>✓ &nbsp;AI-Powered Assistant</span></div></>}{currentSection?.items && <div className="documentation-items">{currentSection.items.map((item: string) => <div id={`${currentSection.id}-${item}`} key={item}><b>●</b><span><strong>{item}</strong><small>{item === 'System Requirements' ? 'Modern browser, active API server, and an authorized user account.' : 'Follow the guided workflow in the application and review the related security evidence.'}</small></span></div>)}</div>}</div></article>
+          <article className="documentation-content-card getting-started-card"><div className="documentation-card-header">⚑ &nbsp;Getting Started</div><div className="getting-started-steps"><span>❶ Log in to your account using secure credentials.</span><span>❷ Explore the dashboard to monitor security status.</span><span>❸ Configure policies and simulate access requests.</span><span>❹ Analyze risks and view detailed reports.</span></div><div className="documentation-tip">✓ &nbsp;Tip: Use the sidebar to navigate through different sections and explore all features.</div></article>
+        </main>
+        <aside className="documentation-rightbar"><article className="documentation-side-card"><h3>ϟ &nbsp;Quick Links</h3><button type="button" onClick={() => void download('/documentation/download/user-guide', 'zero-trust-user-guide.md')}>▣ &nbsp; User Guide</button><button type="button" onClick={() => window.open('/docs', '_blank')}>〈/〉 &nbsp; API Reference</button><button type="button" onClick={() => window.open(page?.video_reference?.url, '_blank')}>▶ &nbsp; Video Tutorials</button><button type="button" onClick={() => void download('/documentation/download/manual', 'zero-trust-manual.md')}>⇩ &nbsp; Download Manual</button></article><article className="documentation-side-card system-info-card"><h3>▣ &nbsp;System Information</h3><p>Version <b>{page?.system_info?.version ?? 'v1.0.0'}</b></p><p>Last Updated <b>{page?.updated_at ? new Date(page.updated_at).toLocaleDateString() : '—'}</b></p><p>License <b>{page?.system_info?.license ?? 'Educational'}</b></p><p>Status <strong>● {page?.system_info?.status ?? 'Operational'}</strong></p></article><article className="documentation-side-card help-card"><h3>♧ &nbsp;Need Help?</h3><p>Contact our support team for any questions or assistance.</p><button className="primary-button" type="button" onClick={() => window.location.href = '/assistant'}>♧ Get Support</button></article><article className="documentation-side-card video-reference-card"><h3>▶ &nbsp;Video Reference</h3><strong>{page?.video_reference?.title}</strong><small>{page?.video_reference?.description}</small><button type="button" onClick={() => window.open(page?.video_reference?.url, '_blank')}>Watch tutorial ↗</button></article></aside>
+      </section>
+      {status && <div className="success-banner">{status}</div>}
     </div>
   )
 }
 
-function SettingsPage({ token }: { token: string }) {
+function SettingsPage({ token, currentUser }: { token: string; currentUser: User | null }) {
   const [form, setForm] = useState({
     full_name: '',
     email: '',
     password: '',
     confirm_password: '',
-    theme: 'dark',
+    theme: localStorage.getItem('zt-theme') ?? 'system',
+    timezone: 'UTC',
+    two_factor: true,
+    session_timeout: '30 minutes',
+    password_policy: true,
+    login_notifications: true,
+    security_alerts: true,
+    risk_reports: true,
+    policy_changes: false,
+    audit_logs: true,
+    sidebar: 'Default',
+    dashboard_layout: 'Standard',
+    color: 'blue',
   })
   const [status, setStatus] = useState('')
   useEffect(() => {
@@ -1453,6 +1564,9 @@ function SettingsPage({ token }: { token: string }) {
       ...current,
       full_name: user.full_name,
       email: user.email,
+      theme: user.theme ?? current.theme,
+      timezone: user.timezone ?? 'UTC',
+      ...(user.notification_preferences ? JSON.parse(user.notification_preferences) : {}),
     })))
   }, [token])
   const save = async () => {
@@ -1464,53 +1578,46 @@ function SettingsPage({ token }: { token: string }) {
       await apiFetch('/auth/me', { method: 'PATCH', body: JSON.stringify({
         full_name: form.full_name,
         email: form.email,
+        theme: form.theme,
+        timezone: form.timezone,
+        notification_preferences: {
+          security_alerts: form.security_alerts,
+          risk_reports: form.risk_reports,
+          policy_changes: form.policy_changes,
+          audit_logs: form.audit_logs,
+          login_notifications: form.login_notifications,
+        },
         ...(form.password ? { password: form.password } : {}),
       }) }, token)
+      localStorage.setItem('zt-theme', form.theme)
+      localStorage.setItem('zt-color', form.color)
+      const resolvedTheme = form.theme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+        : form.theme
+      document.documentElement.dataset.theme = resolvedTheme
+      document.documentElement.dataset.color = form.color
       setStatus('Settings saved.')
     } catch (e) {
       setStatus((e as Error).message)
     }
   }
 
+  const toggle = (key: keyof typeof form) => setForm((current) => ({ ...current, [key]: !current[key] }))
+  const setField = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }))
+
   return (
-    <div className="page-card">
-      <h2>Settings</h2>
-
-      <div className="settings-grid">
-        <label>
-          Full Name
-          <input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
-        </label>
-
-        <label>
-          Email
-          <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        </label>
-
-        <label>
-          Password
-          <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-        </label>
-
-        <label>
-          Confirm Password
-          <input
-            type="password"
-            value={form.confirm_password}
-            onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
-          />
-        </label>
-
-        <label>
-          Theme
-          <select value={form.theme} onChange={(e) => setForm({ ...form, theme: e.target.value })}>
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-            <option value="system">System</option>
-          </select>
-        </label>
-      </div>
-      <button className="primary-button" type="button" onClick={() => void save()}>Save settings</button>
+    <div className="settings-page">
+      <section className="settings-heading"><div className="settings-brand-mark">⚙</div><div><h2>Settings</h2><p>Manage your account, preferences and system configuration.</p></div><span className="operational-pill"><i /> Operational</span></section>
+      <nav className="settings-tabs"><button className="active" type="button">● &nbsp;Account</button><button type="button">♜ &nbsp;Security</button><button type="button">♟ &nbsp;Notifications</button><button type="button">◉ &nbsp;Appearance</button><button type="button">▤ &nbsp;System</button><button type="button">☁ &nbsp;Backup & Restore</button></nav>
+      <section className="settings-top-grid">
+        <article className="settings-panel profile-panel"><div className="settings-panel-title">● &nbsp;Profile Settings</div><div className="profile-header"><div className="profile-avatar">A<span>⚙</span></div><div><h3>{form.full_name || 'User'}</h3><small>{form.email}</small><em>● {currentUser?.role ?? 'User'}</em></div><button type="button">Change Avatar</button></div><label>Full Name<input value={form.full_name} onChange={(event) => setField('full_name', event.target.value)} /></label><label>Email Address<input value={form.email} onChange={(event) => setField('email', event.target.value)} /></label><label>Organization<input value="Zero Trust Security Lab" readOnly /></label><button className="primary-button settings-save-small" type="button" onClick={() => void save()}>▣ &nbsp;Update Profile</button></article>
+        <article className="settings-panel security-panel"><div className="settings-panel-title">♜ &nbsp;Security Settings</div>{[['two_factor','Two-Factor Authentication (2FA)','Add an extra layer of security to your account'],['password_policy','Password Policy','Enforce strong password requirements'],['login_notifications','Login Notifications','Get notified of new login attempts']].map(([key, title, description]) => <div className="setting-row" key={key}><span className="setting-row-icon">♜</span><div><strong>{title}</strong><small>{description}</small></div><button type="button" className={`switch ${form[key as keyof typeof form] ? 'on' : ''}`} onClick={() => toggle(key as keyof typeof form)}><i /></button></div>)}<div className="setting-row"><span className="setting-row-icon">◷</span><div><strong>Session Timeout</strong><small>Automatically log out after inactivity</small></div><select value={form.session_timeout} onChange={(event) => setField('session_timeout', event.target.value)}><option>15 minutes</option><option>30 minutes</option><option>60 minutes</option></select></div></article>
+      </section>
+      <section className="settings-bottom-grid">
+        <article className="settings-panel notification-panel"><div className="settings-panel-title">♟ &nbsp;Notification Settings</div>{[['security_alerts','Security Alerts','Receive alerts for critical security events'],['risk_reports','Risk Reports','Get periodic risk analysis reports'],['policy_changes','Policy Updates','Receive updates about system changes'],['audit_logs','Audit Logs','Get notified about important audit events']].map(([key, title, description]) => <div className="setting-row compact" key={key}><span className="setting-row-icon">♟</span><div><strong>{title}</strong><small>{description}</small></div><button type="button" className={`switch ${form[key as keyof typeof form] ? 'on' : ''}`} onClick={() => toggle(key as keyof typeof form)}><i /></button></div>)}<button className="primary-button" type="button" onClick={() => void save()}>♧ &nbsp;Save Notification Preferences</button></article>
+        <article className="settings-panel appearance-panel"><div className="settings-panel-title">◉ &nbsp;Appearance Settings</div><label>Theme<div className="theme-buttons">{[['light','☼ Light'],['dark','☾ Dark'],['system','▣ Auto']].map(([value,label]) => <button type="button" className={form.theme === value ? 'selected' : ''} key={value} onClick={() => setField('theme', value)}>{label}</button>)}</div></label><label>Sidebar Style<div className="theme-buttons"><button type="button" className={form.sidebar === 'Default' ? 'selected' : ''} onClick={() => setField('sidebar','Default')}>Default</button><button type="button" onClick={() => setField('sidebar','Compact')}>Compact</button></div></label><label>Dashboard Layout<div className="theme-buttons"><button type="button" className={form.dashboard_layout === 'Standard' ? 'selected' : ''} onClick={() => setField('dashboard_layout','Standard')}>Standard</button><button type="button" onClick={() => setField('dashboard_layout','Compact')}>Compact</button></div></label><label>Color Scheme<div className="color-swatches">{['blue','teal','purple','orange','red'].map((color) => <button type="button" className={`${color} ${form.color === color ? 'selected' : ''}`} key={color} onClick={() => setField('color', color)} />)}</div></label><button className="primary-button apply-theme" type="button" onClick={() => void save()}>✎ &nbsp;Apply Theme</button></article>
+        <article className="settings-panel system-panel"><div className="settings-panel-title">ⓘ &nbsp;System Information</div><p>Application Version <b>v1.0.0</b></p><p>Frontend Version <b>v2.0.0</b></p><p>Backend Version <b>v1.0.0</b></p><p>Database <strong>● Connected</strong></p><p>System Uptime <b>7d 14h 32m</b></p><p>Last Backup <b>Nov 4, 2026 · 14:30</b></p><button className="primary-button" type="button" onClick={() => setStatus('System logs are available through the Reports page.')}>⇩ &nbsp;Download Logs</button></article>
+      </section>
       {status && <div className="success-banner">{status}</div>}
     </div>
   )
