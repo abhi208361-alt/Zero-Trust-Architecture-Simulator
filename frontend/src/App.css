@@ -789,8 +789,8 @@ h1 {
 .mini-sparkline { width: 57px; height: 25px; margin-left: auto; margin-top: 15px; border-bottom: 1.5px solid #53a1ff; transform: skewY(-20deg); background: linear-gradient(135deg, transparent 10%, #75b8ff 11% 13%, transparent 14% 30%, #75b8ff 31% 33%, transparent 34% 55%, #75b8ff 56% 58%, transparent 59% 75%, #75b8ff 76% 78%, transparent 79%); opacity: .75; }
 .dashboard-main-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 12px; margin-bottom: 14px; }
 .dashboard-bottom-grid { display: grid; grid-template-columns: 1.15fr .85fr 1fr; gap: 12px; }
-.dashboard-card { padding: 12px; min-width: 0; }
-.dashboard-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+.dashboard-card { padding: 12px; min-width: 0; overflow: hidden; }
+.dashboard-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; min-width: 0; }
 .dashboard-card-heading h3 { margin: 0; color: #17284d; font-size: 12px; }
 .card-link { border: 0; background: transparent; color: #1b65c4; font-size: 10px; font-weight: 800; cursor: pointer; }
 .range-tabs { display: flex; gap: 3px; }
@@ -798,13 +798,13 @@ h1 {
 .range-tabs button.active { color: #fff; background: #136ee8; }
 .activity-legend { display: flex; justify-content: flex-end; gap: 10px; margin: -4px 6px 1px; font-size: 9px; font-weight: 700; }
 .activity-legend .detected { color: #1672ef; }.activity-legend .blocked { color: #f49b26; }
-.activity-chart { display: grid; grid-template-columns: 25px 1fr; grid-template-rows: 1fr 16px; height: 145px; }
+.activity-chart { display: grid; grid-template-columns: 28px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 16px; height: 145px; min-width: 0; }
 .chart-y { display: flex; flex-direction: column; justify-content: space-between; padding: 2px 3px 4px 0; color: #687895; font-size: 8px; text-align: right; }
-.activity-chart svg { width: 100%; height: 126px; overflow: visible; }
+.activity-chart svg { display: block; width: 100%; min-width: 0; height: 126px; overflow: visible; }
 .chart-grid-line { fill: none; stroke: #e4ebf6; stroke-width: 1; }
 .activity-line { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .detected-line { stroke: #207bfa; }.blocked-line { stroke: #ff922b; }
-.chart-x { grid-column: 2; display: flex; justify-content: space-between; color: #687895; font-size: 8px; }
+.chart-x { grid-column: 2; display: flex; justify-content: space-between; min-width: 0; color: #687895; font-size: 8px; }
 .map-card { min-height: 218px; }
 .threat-map { height: 145px; position: relative; overflow: hidden; border-radius: 5px; background: linear-gradient(150deg,#f6f9ff,#eef4fd); }
 .map-land { position: absolute; inset: 30px 35px; color: #c9d8ee; font-size: 48px; letter-spacing: 16px; line-height: 1.2; opacity: .72; transform: scaleX(1.7); }

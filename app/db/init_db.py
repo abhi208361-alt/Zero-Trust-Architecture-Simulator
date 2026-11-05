@@ -116,25 +116,6 @@ def init_defaults(db: Session) -> None:
             )
         )
 
-    if not get_settings().ENABLE_DEMO_DATA:
-        db.commit()
-        return
-
-    for user_data in get_default_users():
-        if db.scalar(select(User).where(User.username == user_data["username"])):
-            continue
-
-        db.add(
-            User(
-                username=user_data["username"],
-                email=user_data["email"],
-                full_name=user_data["full_name"],
-                role=user_data["role"],
-                password_hash=get_password_hash(user_data["password"]),
-                is_active=True,
-            )
-        )
-
     for rule_data in DEFAULT_POLICY_RULES:
         if db.scalar(select(PolicyRule).where(PolicyRule.name == rule_data["name"])):
             continue
@@ -151,6 +132,25 @@ def init_defaults(db: Session) -> None:
                 actions=",".join(rule_data["actions"]),
                 conditions=",".join(rule_data["conditions"]),
                 enabled=rule_data["enabled"],
+            )
+        )
+
+    if not get_settings().ENABLE_DEMO_DATA:
+        db.commit()
+        return
+
+    for user_data in get_default_users():
+        if db.scalar(select(User).where(User.username == user_data["username"])):
+            continue
+
+        db.add(
+            User(
+                username=user_data["username"],
+                email=user_data["email"],
+                full_name=user_data["full_name"],
+                role=user_data["role"],
+                password_hash=get_password_hash(user_data["password"]),
+                is_active=True,
             )
         )
 
